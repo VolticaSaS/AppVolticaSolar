@@ -10,6 +10,7 @@ export function SiteHeader() {
       <nav className="main-nav" aria-label="Navegación principal">
         <a href="#soluciones">Soluciones</a>
         <a href="#nosotros">Nosotros</a>
+        <Link href="/login">Acceso equipo</Link>
         <a className="header-cta" href="mailto:hola@voltica.co">Conversemos <span aria-hidden="true">↗</span></a>
       </nav>
       <details className="mobile-menu">
@@ -17,6 +18,7 @@ export function SiteHeader() {
         <nav className="mobile-menu-panel" aria-label="Navegación móvil">
           <a href="#soluciones">Soluciones</a>
           <a href="#nosotros">Nosotros</a>
+          <Link href="/login">Acceso equipo</Link>
           <a href="mailto:hola@voltica.co">Conversemos ↗</a>
         </nav>
       </details>

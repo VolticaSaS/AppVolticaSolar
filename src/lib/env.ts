@@ -1,5 +1,13 @@
-/**
- * Optional configuration for the future PostgreSQL integration.
- * Database access is intentionally not initialized in the bootstrap application.
- */
-export const databaseUrl = process.env.DATABASE_URL;
+import { z } from "zod";
+
+const databaseEnvironment = z.object({
+  DATABASE_URL: z.string().min(1).startsWith("postgres"),
+});
+
+export function getDatabaseUrl(): string {
+  const parsed = databaseEnvironment.safeParse(process.env);
+  if (!parsed.success) {
+    throw new Error("DATABASE_URL is required to access application data.");
+  }
+  return parsed.data.DATABASE_URL;
+}
