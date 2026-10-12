@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
-    "db:deploy": "prisma migrate deploy",
+    "db:status": "tsx scripts/db-migrate.ts status",
+    "db:deploy": "tsx scripts/db-migrate.ts deploy",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "postinstall": "prisma generate"
   },

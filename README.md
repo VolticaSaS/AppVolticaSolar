@@ -42,6 +42,7 @@ npm start
 - Un operador consulta solo proyectos propios/asignados y precio total COP autorizado. Ingeniería puede revisar datos técnicos asignados, pero no costos ni márgenes. Administración gestiona usuarios y finanzas.
 - La auditoría registra actor, acción y entidad; no incluye cuerpos de solicitudes ni valores financieros.
 - Contraseñas locales usan Argon2id. Las sesiones usan tokens aleatorios opacos almacenando solo su hash, cookie HttpOnly, SameSite=Lax, Secure en producción y caducidad de ocho horas.
+- `npm run db:status` y `npm run db:deploy` son comandos manuales con barreras de entorno y base; las migraciones nunca se ejecutan al iniciar Next.js.
 
 ## Primer administrador
 
@@ -63,30 +64,36 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
 
 ### Nombre de base y conexión Railway
 
-1. En el entorno **Development**, crea o provisiona una base PostgreSQL llamada `db_voltica_solar`. Si el servicio PostgreSQL actual usa un volumen persistente con otra base, crea una base separada mediante el mecanismo soportado por Railway/PostgreSQL o un servicio PostgreSQL nuevo. No cambies `POSTGRES_DB` en un volumen existente: esa variable no renombra de forma segura la base ya inicializada y puede dejar el servicio apuntando a otro estado.
-2. En el servicio web, configura `DATABASE_URL` como referencia a la conexión privada de PostgreSQL cuando ambos servicios estén en la misma red privada de Railway. Conserva usuario, contraseña, host, puerto y parámetros SSL/query existentes; actualiza solo el nombre de base al final de la ruta a `/db_voltica_solar`. No copies ni publiques la URI. Si Railway entrega una conexión distinta al crear la base, usa la referencia generada por Railway y verifica que su ruta nombre `db_voltica_solar`.
-3. Comprueba el entorno y nombre destino de `DATABASE_URL` antes de cualquier comando de migración. El `.env.example` no incluye valores reales.
+1. En el entorno **Development**, confirma que `db_voltica_solar` existe. En el editor SQL de Railway, selecciona explícitamente esa base y verifica `SELECT current_database();`; el editor puede abrir inicialmente `railway`.
+2. En Variables del servicio `AppVolticaSolar` en **Development**, configura `DATABASE_URL` con los datos administrados del servicio `Postgres` y la conexión privada. Conserva host privado, usuario, contraseña, puerto y parámetros; el componente de ruta debe terminar en `/db_voltica_solar`. Guarda la URI únicamente como variable administrada en Railway, nunca en Git, tickets o logs. No cambies `POSTGRES_DB`, `PGDATABASE` ni el volumen de Postgres.
+3. Despliega en Development la revisión que contiene `scripts/db-migrate.ts`. El comando rechaza cualquier servicio/entorno distinto de `AppVolticaSolar`/`Development`, comprueba en vivo `SELECT current_database()` y exige exactamente `db_voltica_solar` antes de invocar Prisma. El mismo `DATABASE_URL` se usa para el preflight PostgreSQL, Prisma Migrate y el cliente de la aplicación.
 
 ### Base nueva
 
-1. Revisa y aprueba las tres migraciones `migration.sql`.
-2. Haz un respaldo de la base PostgreSQL de Railway Development.
-3. En un terminal/servicio que tenga la referencia `DATABASE_URL` de Development, ejecuta `npm run db:deploy`. Este comando aplica primero la baseline v1 y luego la actualización v2.
-4. Prisma aplica en orden la baseline, la actualización v2 y los renombres v3. Revisa la tabla `_prisma_migrations`, valida los nombres/tablas y después ejecuta el bootstrap de administrador de forma controlada.
+1. Revisa las tres migraciones SQL y crea un respaldo restaurable de PostgreSQL Development.
+2. Abre una shell en la instancia desplegada de `AppVolticaSolar` en Development (requiere Railway CLI/SSH habilitado; el servicio PostgreSQL sigue privado). Desde una terminal autenticada y vinculada al proyecto, ejecuta primero:
+
+   ```bash
+   railway ssh --environment Development --service AppVolticaSolar -- npm run db:status
+   ```
+
+   Código de salida `0` significa historia sincronizada; `2` indica migraciones pendientes, sin modificar la base. Divergencias, migraciones fallidas o tablas Voltica existentes sin historia Prisma detienen la operación.
+3. Solo tras revisar el estado y aprobar el respaldo, ejecuta una única vez:
+
+   ```bash
+   railway ssh --environment Development --service AppVolticaSolar -- npm run db:deploy
+   ```
+
+   El wrapper vuelve a consultar `current_database()` antes de ejecutar Prisma, muestra el resultado de `migrate deploy` sin mostrar la URL, y al final confirma las tablas de `public`/`internal` y las tres entradas terminadas de `_prisma_migrations`. No está configurado en el inicio ni en el comando normal de despliegue.
+4. Si todo termina correctamente, conserva el log como registro y luego realiza el bootstrap administrativo solo mediante su procedimiento separado y seguro.
 
 ### Base con v1 ya instalada
 
-1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. La estructura actual de Railway no se ha inspeccionado como parte de este cambio. Respalda la base y ensaya la migración sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. La migración v3 renombra las tablas/columnas v2 al español, también mueve el histórico legado a `internal.tb_analisis_financieros_legacy_v1`, y renombra índices, claves y restricciones sin eliminar filas.
-2. Si v1 se creó previamente sin historial Prisma, registra la baseline como ya aplicada (esto solo registra historial; no ejecuta el archivo baseline):
+1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. El wrapper se detiene si encuentra tablas de negocio sin `_prisma_migrations`; no se debe intentar ejecutar la baseline sobre tablas existentes. Respalda la base y ensaya la actualización sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. El costo de catálogo v1 se transfiere a `internal.equipment_costs` antes de retirar su columna pública. La migración v3 renombra las tablas/columnas v2 al español y renombra índices, claves y restricciones sin eliminar filas.
+2. Si v1 se creó previamente sin historial Prisma, el wrapper detendrá la operación al detectar tablas sin historial. No ejecutes directamente `prisma migrate resolve`: primero solicita una reconciliación revisada con el DBA, valida que todas las tablas, columnas y restricciones coinciden con la baseline en una sesión conectada a `db_voltica_solar`, y registra la baseline solo después de esa comprobación. `migrate resolve` registra historial y no ejecuta el archivo baseline.
+3. Si ya se aplicó v2, `db:status` debe mostrar únicamente v3 pendiente y `db:deploy` aplicará esa migración incremental. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
 
-   ```bash
-   npx prisma migrate resolve --applied 20261011090000_v1_baseline
-   npm run db:deploy
-   ```
-
-3. Si ya se aplicó v2, `npm run db:deploy` aplicará solo la migración incremental de nomenclatura. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
-
-`db:deploy` altera la base indicada por `DATABASE_URL`. No se ha ejecutado ninguna migración ni se ha eliminado o renombrado ninguna base. Se requiere autorización explícita antes de ejecutar migraciones contra Railway Development. La compilación y los comandos de validación no despliegan migraciones automáticamente.
+`db:deploy` altera la base indicada por `DATABASE_URL`. El guard también requiere las variables Railway `RAILWAY_ENVIRONMENT_NAME=Development` y `RAILWAY_SERVICE_NAME=AppVolticaSolar`, además de que PostgreSQL confirme el nombre de base correcto. No ejecutes este comando desde Production. La compilación y los comandos de inicio normales no despliegan migraciones automáticamente.
 
 ### Rollback
 
