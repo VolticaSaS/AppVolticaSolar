@@ -9,18 +9,18 @@ datasource db {
 }
 
 model AppUser {
-  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName              String                    @map("full_name") @db.VarChar(160)
-  email                 String                    @db.VarChar(255)
-  passwordHash          String                    @map("password_hash")
-  role                  String                    @default("operator") @db.VarChar(20)
-  isActive              Boolean                   @default(true) @map("is_active")
-  mustChangePassword    Boolean                   @default(false) @map("must_change_password")
-  failedLoginAttempts   Int                       @default(0) @map("failed_login_attempts") @db.SmallInt
-  lockedUntil           DateTime?                 @map("locked_until") @db.Timestamptz(6)
-  lastLoginAt           DateTime?                 @map("last_login_at") @db.Timestamptz(6)
-  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  fullName              String                    @map("nombre_completo") @db.VarChar(160)
+  email                 String                    @db.VarChar(255) @map("correo_electronico")
+  passwordHash          String                    @map("hash_clave")
+  role                  String                    @default("operator") @db.VarChar(20) @map("rol")
+  isActive              Boolean                   @default(true) @map("activo")
+  mustChangePassword    Boolean                   @default(false) @map("debe_cambiar_clave")
+  failedLoginAttempts   Int                       @default(0) @map("intentos_acceso_fallidos") @db.SmallInt
+  lockedUntil           DateTime?                 @map("bloqueado_hasta") @db.Timestamptz(6)
+  lastLoginAt           DateTime?                 @map("ultimo_acceso") @db.Timestamptz(6)
+  createdAt             DateTime                  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  updatedAt             DateTime                  @default(now()) @map("actualizado_en") @db.Timestamptz(6)
   passwordResetTokens   PasswordResetToken[]
   authSessions          AuthSession[]
   clientsCreated        Client[]                  @relation("ClientCreatedBy")
@@ -35,349 +35,349 @@ model AppUser {
   appSettingsUpdated    AppSetting[]              @relation("SettingUpdatedBy")
   auditEvents           AuditEvent[]              @relation("AuditActor")
 
-  @@map("app_users")
+  @@map("tb_usuarios")
   @@schema("public")
 }
 
 model PasswordResetToken {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  userId    String    @map("usuario_id") @db.Uuid
+  tokenHash String    @unique(map: "uq_tb_recuperacion_claves_hash_token") @map("hash_token")
+  expiresAt DateTime  @map("expira_en") @db.Timestamptz(6)
+  usedAt    DateTime? @map("usado_en") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "fk_tb_recuperacion_claves_usuario")
 
-  @@index([userId], map: "ix_password_reset_user")
-  @@map("password_reset_tokens")
+  @@index([userId], map: "idx_tb_recuperacion_claves_usuario")
+  @@map("tb_recuperacion_claves")
   @@schema("public")
 }
 
 model AuthSession {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash") @db.Char(64)
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
-  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  userId    String    @map("usuario_id") @db.Uuid
+  tokenHash String    @unique(map: "uq_tb_sesiones_hash_token") @map("hash_token") @db.Char(64)
+  expiresAt DateTime  @map("expira_en") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  lastSeenAt DateTime @default(now()) @map("ultimo_uso_en") @db.Timestamptz(6)
+  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "fk_tb_sesiones_usuario")
 
-  @@index([userId, expiresAt], map: "ix_auth_sessions_user_expiry")
-  @@map("auth_sessions")
+  @@index([userId, expiresAt], map: "idx_tb_sesiones_usuario_expira")
+  @@map("tb_sesiones")
   @@schema("public")
 }
 
 model Client {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  legalName    String    @map("legal_name") @db.VarChar(200)
-  clientType   String    @default("business") @map("client_type") @db.VarChar(30)
-  taxId        String?   @map("tax_id") @db.VarChar(40)
-  contactName  String?   @map("contact_name") @db.VarChar(160)
-  contactEmail String?   @map("contact_email") @db.VarChar(255)
-  contactPhone String?   @map("contact_phone") @db.VarChar(40)
-  notes        String?
-  createdBy    String?   @map("created_by") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  creator      AppUser?  @relation("ClientCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  legalName    String    @map("nombre_legal") @db.VarChar(200)
+  clientType   String    @default("business") @map("tipo_cliente") @db.VarChar(30)
+  taxId        String?   @map("identificacion_fiscal") @db.VarChar(40)
+  contactName  String?   @map("nombre_contacto") @db.VarChar(160)
+  contactEmail String?   @map("correo_contacto") @db.VarChar(255)
+  contactPhone String?   @map("telefono_contacto") @db.VarChar(40)
+  notes        String?   @map("notas")
+  createdBy    String?   @map("creado_por") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  creator      AppUser?  @relation("ClientCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, map: "fk_tb_clientes_creado_por")
   projects     Project[]
 
-  @@map("clients")
+  @@map("tb_clientes")
   @@schema("public")
 }
 
 model Project {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clientId          String              @map("client_id") @db.Uuid
-  name              String              @db.VarChar(200)
-  referenceCode     String?             @unique @map("reference_code") @db.VarChar(60)
-  city              String?             @db.VarChar(120)
-  department        String?             @db.VarChar(120)
-  country           String              @default("Colombia") @db.VarChar(80)
-  address           String?
-  latitude          Decimal?            @db.Decimal(9, 6)
-  longitude         Decimal?            @db.Decimal(9, 6)
-  gridAvailable     Boolean?            @map("grid_available")
-  systemType        String?             @map("system_type") @db.VarChar(20)
-  status            String              @default("draft") @db.VarChar(25)
-  ownerId           String?             @map("owner_id") @db.Uuid
-  notes             String?
-  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  client            Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  owner             AppUser?            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  clientId          String              @map("cliente_id") @db.Uuid
+  name              String              @db.VarChar(200) @map("nombre")
+  referenceCode     String?             @unique(map: "uq_tb_proyectos_codigo_referencia") @map("codigo_referencia") @db.VarChar(60)
+  city              String?             @db.VarChar(120) @map("ciudad")
+  department        String?             @db.VarChar(120) @map("departamento")
+  country           String              @default("Colombia") @db.VarChar(80) @map("pais")
+  address           String?             @map("direccion")
+  latitude          Decimal?            @db.Decimal(9, 6) @map("latitud")
+  longitude         Decimal?            @db.Decimal(9, 6) @map("longitud")
+  gridAvailable     Boolean?            @map("red_disponible")
+  systemType        String?             @map("modalidad") @db.VarChar(20)
+  status            String              @default("draft") @db.VarChar(25) @map("estado")
+  ownerId           String?             @map("responsable_id") @db.Uuid
+  notes             String?             @map("notas")
+  createdAt         DateTime            @default(now()) @map("creado_en") @db.Timestamptz(6)
+  updatedAt         DateTime            @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  client            Client              @relation(fields: [clientId], references: [id], onDelete: Restrict, map: "fk_tb_proyectos_cliente")
+  owner             AppUser?            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull, map: "fk_tb_proyectos_responsable")
   memberships       ProjectMembership[]
   energyConsumption EnergyConsumption[]
   solarResourceInputs SolarResourceInput[]
   projectLoads      ProjectLoad[]
   simulations       Simulation[]
 
-  @@index([clientId], map: "ix_projects_client")
-  @@index([ownerId], map: "ix_projects_owner")
-  @@map("projects")
+  @@index([clientId], map: "idx_tb_proyectos_cliente")
+  @@index([ownerId], map: "idx_tb_proyectos_responsable")
+  @@map("tb_proyectos")
   @@schema("public")
 }
 
 model ProjectMembership {
-  projectId  String   @map("project_id") @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  accessRole String   @map("access_role") @db.VarChar(20)
-  assignedBy String?  @map("assigned_by") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user       AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assigner   AppUser? @relation("MembershipAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+  projectId  String   @map("proyecto_id") @db.Uuid
+  userId     String   @map("usuario_id") @db.Uuid
+  accessRole String   @map("rol_acceso") @db.VarChar(20)
+  assignedBy String?  @map("asignado_por") @db.Uuid
+  createdAt  DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "fk_tb_pertenencias_proyecto_proyecto")
+  user       AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade, map: "fk_tb_pertenencias_proyecto_usuario")
+  assigner   AppUser? @relation("MembershipAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull, map: "fk_tb_pertenencias_proyecto_asignado_por")
 
-  @@id([projectId, userId])
-  @@index([userId, accessRole], map: "ix_project_memberships_user_role")
-  @@map("project_memberships")
+  @@id([projectId, userId], map: "pk_tb_pertenencias_proyecto")
+  @@index([userId, accessRole], map: "idx_tb_pertenencias_proyecto_usuario_rol")
+  @@map("tb_pertenencias_proyecto")
   @@schema("public")
 }
 
 model EnergyConsumption {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId        String   @map("project_id") @db.Uuid
-  periodMonth      DateTime @map("period_month") @db.Date
-  energyKwh        Decimal  @map("energy_kwh") @db.Decimal(14, 3)
-  totalBillCop     Decimal? @map("total_bill_cop") @db.Decimal(16, 2)
-  energyRateCopKwh Decimal? @map("energy_rate_cop_kwh") @db.Decimal(14, 4)
-  peakDemandKw     Decimal? @map("peak_demand_kw") @db.Decimal(14, 3)
-  loadProfile      Json?    @map("load_profile") @db.JsonB
-  source           String   @default("manual") @db.VarChar(25)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  projectId        String   @map("proyecto_id") @db.Uuid
+  periodMonth      DateTime @map("periodo_mes") @db.Date
+  energyKwh        Decimal  @map("energia_kwh") @db.Decimal(14, 3)
+  totalBillCop     Decimal? @map("valor_factura_cop") @db.Decimal(16, 2)
+  energyRateCopKwh Decimal? @map("tarifa_cop_kwh") @db.Decimal(14, 4)
+  peakDemandKw     Decimal? @map("demanda_maxima_kw") @db.Decimal(14, 3)
+  loadProfile      Json?    @map("perfil_carga") @db.JsonB
+  source           String   @default("manual") @db.VarChar(25) @map("fuente")
+  createdAt        DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "fk_tb_consumos_energia_proyecto")
 
-  @@unique([projectId, periodMonth])
-  @@index([projectId], map: "ix_consumption_project")
-  @@map("energy_consumption")
+  @@unique([projectId, periodMonth], map: "uq_tb_consumos_energia_proyecto_periodo")
+  @@index([projectId], map: "idx_tb_consumos_energia_proyecto")
+  @@map("tb_consumos_energia")
   @@schema("public")
 }
 
 model EquipmentCatalog {
-  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category            String                  @db.VarChar(20)
-  manufacturer        String                  @db.VarChar(120)
-  model               String                  @db.VarChar(160)
-  nominalPowerKw      Decimal?                @map("nominal_power_kw") @db.Decimal(13, 6)
-  capacityKwh         Decimal?                @map("capacity_kwh") @db.Decimal(13, 3)
-  usableDodFraction   Decimal?                @map("usable_dod_fraction") @db.Decimal(5, 4)
-  efficiencyFraction  Decimal?                @map("efficiency_fraction") @db.Decimal(5, 4)
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  category            String                  @db.VarChar(20) @map("categoria")
+  manufacturer        String                  @db.VarChar(120) @map("fabricante")
+  model               String                  @map("modelo") @db.VarChar(160)
+  nominalPowerKw      Decimal?                @map("potencia_nominal_kw") @db.Decimal(13, 6)
+  capacityKwh         Decimal?                @map("capacidad_kwh") @db.Decimal(13, 3)
+  usableDodFraction   Decimal?                @map("fraccion_descarga_util") @db.Decimal(5, 4)
+  efficiencyFraction  Decimal?                @map("fraccion_eficiencia") @db.Decimal(5, 4)
   areaM2              Decimal?                @map("area_m2") @db.Decimal(10, 3)
-  specs               Json                    @default("{}") @db.JsonB
-  isActive            Boolean                 @default(true) @map("is_active")
-  isDemo              Boolean                 @default(false) @map("is_demo")
-  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  specs               Json                    @default("{}") @db.JsonB @map("especificaciones")
+  isActive            Boolean                 @default(true) @map("activo")
+  isDemo              Boolean                 @default(false) @map("es_demostracion")
+  createdAt           DateTime                @default(now()) @map("creado_en") @db.Timestamptz(6)
+  updatedAt           DateTime                @default(now()) @map("actualizado_en") @db.Timestamptz(6)
   equipmentCosts      InternalEquipmentCost[]
   simulationsAsPanel  Simulation[]            @relation("SimulationPanel")
   simulationsAsInverter Simulation[]          @relation("SimulationInverter")
   simulationsAsBattery Simulation[]           @relation("SimulationBattery")
 
-  @@unique([category, manufacturer, model])
-  @@index([category, isActive], map: "ix_equipment_category")
-  @@map("equipment_catalog")
+  @@unique([category, manufacturer, model], map: "uq_tb_catalogo_equipos_categoria_fabricante_modelo")
+  @@index([category, isActive], map: "idx_tb_catalogo_equipos_categoria_activo")
+  @@map("tb_catalogo_equipos")
   @@schema("public")
 }
 
 model SolarResourceInput {
-  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId           String       @map("project_id") @db.Uuid
-  source              String       @db.VarChar(40)
-  sourceReference     String?      @map("source_reference")
-  periodStart         DateTime?    @map("period_start") @db.Date
-  periodEnd           DateTime?    @map("period_end") @db.Date
-  retrievedAt         DateTime?    @map("retrieved_at") @db.Timestamptz(6)
-  peakSunHoursDay     Decimal?     @map("peak_sun_hours_day") @db.Decimal(6, 3)
-  irradianceKwhM2Year Decimal?     @map("irradiance_kwh_m2_year") @db.Decimal(10, 3)
-  tiltDegrees         Decimal?     @map("tilt_degrees") @db.Decimal(5, 2)
-  azimuthDegrees      Decimal?     @map("azimuth_degrees") @db.Decimal(6, 2)
-  assumptions         Json         @default("{}") @db.JsonB
-  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  projectId           String       @map("proyecto_id") @db.Uuid
+  source              String       @db.VarChar(40) @map("fuente")
+  sourceReference     String?      @map("referencia_fuente")
+  periodStart         DateTime?    @map("periodo_inicio") @db.Date
+  periodEnd           DateTime?    @map("periodo_fin") @db.Date
+  retrievedAt         DateTime?    @map("consultado_en") @db.Timestamptz(6)
+  peakSunHoursDay     Decimal?     @map("horas_sol_pico_dia") @db.Decimal(6, 3)
+  irradianceKwhM2Year Decimal?     @map("irradiacion_kwh_m2_anio") @db.Decimal(10, 3)
+  tiltDegrees         Decimal?     @map("inclinacion_grados") @db.Decimal(5, 2)
+  azimuthDegrees      Decimal?     @map("azimut_grados") @db.Decimal(6, 2)
+  assumptions         Json         @default("{}") @db.JsonB @map("supuestos")
+  createdAt           DateTime     @default(now()) @map("creado_en") @db.Timestamptz(6)
+  project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "fk_tb_recursos_solares_proyecto")
   simulations         Simulation[]
 
-  @@map("solar_resource_inputs")
+  @@map("tb_recursos_solares")
   @@schema("public")
 }
 
 model ProjectLoad {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId            String   @map("project_id") @db.Uuid
-  name                 String   @db.VarChar(160)
-  ratedPowerKw         Decimal  @map("rated_power_kw") @db.Decimal(14, 6)
-  quantity             Int      @default(1)
-  hoursPerDay          Decimal  @map("hours_per_day") @db.Decimal(6, 2)
-  criticalForBackup    Boolean  @default(false) @map("critical_for_backup")
-  simultaneityFraction Decimal  @default(1) @map("simultaneity_fraction") @db.Decimal(5, 4)
-  notes                String?
-  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  projectId            String   @map("proyecto_id") @db.Uuid
+  name                 String   @db.VarChar(160) @map("nombre")
+  ratedPowerKw         Decimal  @map("potencia_nominal_kw") @db.Decimal(14, 6)
+  quantity             Int      @default(1) @map("cantidad")
+  hoursPerDay          Decimal  @map("horas_por_dia") @db.Decimal(6, 2)
+  criticalForBackup    Boolean  @default(false) @map("critica_para_respaldo")
+  simultaneityFraction Decimal  @default(1) @map("fraccion_simultaneidad") @db.Decimal(5, 4)
+  notes                String?  @map("notas")
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "fk_tb_cargas_proyecto_proyecto")
 
-  @@map("project_loads")
+  @@map("tb_cargas_proyecto")
   @@schema("public")
 }
 
 model Simulation {
-  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId                String   @map("project_id") @db.Uuid
-  createdBy                String?  @map("created_by") @db.Uuid
-  version                  Int
-  title                    String?  @db.VarChar(160)
-  systemType               String   @map("system_type") @db.VarChar(20)
-  batteryEnabled           Boolean  @map("battery_enabled")
-  panelId                  String?  @map("panel_id") @db.Uuid
-  inverterId               String?  @map("inverter_id") @db.Uuid
-  batteryId                String?  @map("battery_id") @db.Uuid
-  solarResourceId          String?  @map("solar_resource_id") @db.Uuid
-  desiredCoverageFraction  Decimal? @map("desired_coverage_fraction") @db.Decimal(5, 4)
-  systemLossFraction       Decimal? @map("system_loss_fraction") @db.Decimal(5, 4)
-  roofUsableAreaM2         Decimal? @map("roof_usable_area_m2") @db.Decimal(12, 3)
-  backupHours              Decimal? @map("backup_hours") @db.Decimal(9, 2)
-  backupLoadKw             Decimal? @map("backup_load_kw") @db.Decimal(14, 6)
-  designInputs             Json     @default("{}") @map("design_inputs") @db.JsonB
-  calculationMethodVersion String   @map("calculation_method_version") @db.VarChar(40)
-  resultPanelCount         Int?     @map("result_panel_count")
-  resultPvKwp              Decimal? @map("result_pv_kwp") @db.Decimal(14, 4)
-  resultGenerationKwhMonth Decimal? @map("result_generation_kwh_month") @db.Decimal(14, 3)
-  resultGenerationKwhYear  Decimal? @map("result_generation_kwh_year") @db.Decimal(14, 3)
-  resultBatteryNominalKwh  Decimal? @map("result_battery_nominal_kwh") @db.Decimal(14, 3)
-  resultBatteryUsableKwh   Decimal? @map("result_battery_usable_kwh") @db.Decimal(14, 3)
-  resultBackupHours        Decimal? @map("result_backup_hours") @db.Decimal(12, 3)
-  resultDetails            Json     @default("{}") @map("result_details") @db.JsonB
-  warnings                 Json     @default("[]") @db.JsonB
-  status                   String   @default("draft") @db.VarChar(24)
-  reviewedBy               String?  @map("reviewed_by") @db.Uuid
-  reviewedAt               DateTime? @map("reviewed_at") @db.Timestamptz(6)
-  reviewNotes              String?  @map("review_notes")
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator                  AppUser? @relation("SimulationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  reviewer                 AppUser? @relation("SimulationReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
-  panel                    EquipmentCatalog? @relation("SimulationPanel", fields: [panelId], references: [id], onDelete: SetNull)
-  inverter                 EquipmentCatalog? @relation("SimulationInverter", fields: [inverterId], references: [id], onDelete: SetNull)
-  battery                  EquipmentCatalog? @relation("SimulationBattery", fields: [batteryId], references: [id], onDelete: SetNull)
-  solarResource            SolarResourceInput? @relation(fields: [solarResourceId], references: [id], onDelete: SetNull)
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  projectId                String   @map("proyecto_id") @db.Uuid
+  createdBy                String?  @map("creado_por") @db.Uuid
+  version                  Int      @map("version")
+  title                    String?  @db.VarChar(160) @map("titulo")
+  systemType               String   @map("modalidad") @db.VarChar(20)
+  batteryEnabled           Boolean  @map("bateria_habilitada")
+  panelId                  String?  @map("equipo_panel_id") @db.Uuid
+  inverterId               String?  @map("equipo_inversor_id") @db.Uuid
+  batteryId                String?  @map("equipo_bateria_id") @db.Uuid
+  solarResourceId          String?  @map("recurso_solar_id") @db.Uuid
+  desiredCoverageFraction  Decimal? @map("fraccion_cobertura_objetivo") @db.Decimal(5, 4)
+  systemLossFraction       Decimal? @map("fraccion_perdidas_sistema") @db.Decimal(5, 4)
+  roofUsableAreaM2         Decimal? @map("area_util_techo_m2") @db.Decimal(12, 3)
+  backupHours              Decimal? @map("horas_respaldo") @db.Decimal(9, 2)
+  backupLoadKw             Decimal? @map("carga_respaldo_kw") @db.Decimal(14, 6)
+  designInputs             Json     @default("{}") @map("entradas_diseno") @db.JsonB
+  calculationMethodVersion String   @map("version_metodologia_calculo") @db.VarChar(40)
+  resultPanelCount         Int?     @map("resultado_cantidad_paneles")
+  resultPvKwp              Decimal? @map("resultado_potencia_fv_kwp") @db.Decimal(14, 4)
+  resultGenerationKwhMonth Decimal? @map("resultado_generacion_kwh_mes") @db.Decimal(14, 3)
+  resultGenerationKwhYear  Decimal? @map("resultado_generacion_kwh_anio") @db.Decimal(14, 3)
+  resultBatteryNominalKwh  Decimal? @map("resultado_bateria_nominal_kwh") @db.Decimal(14, 3)
+  resultBatteryUsableKwh   Decimal? @map("resultado_bateria_util_kwh") @db.Decimal(14, 3)
+  resultBackupHours        Decimal? @map("resultado_horas_respaldo") @db.Decimal(12, 3)
+  resultDetails            Json     @default("{}") @map("detalle_resultados") @db.JsonB
+  warnings                 Json     @default("[]") @db.JsonB @map("advertencias")
+  status                   String   @default("draft") @db.VarChar(24) @map("estado")
+  reviewedBy               String?  @map("revisado_por") @db.Uuid
+  reviewedAt               DateTime? @map("revisado_en") @db.Timestamptz(6)
+  reviewNotes              String?  @map("notas_revision")
+  createdAt                DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  project                  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "fk_tb_simulaciones_proyecto")
+  creator                  AppUser? @relation("SimulationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_creado_por")
+  reviewer                 AppUser? @relation("SimulationReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_revisado_por")
+  panel                    EquipmentCatalog? @relation("SimulationPanel", fields: [panelId], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_equipo_panel")
+  inverter                 EquipmentCatalog? @relation("SimulationInverter", fields: [inverterId], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_equipo_inversor")
+  battery                  EquipmentCatalog? @relation("SimulationBattery", fields: [batteryId], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_equipo_bateria")
+  solarResource            SolarResourceInput? @relation(fields: [solarResourceId], references: [id], onDelete: SetNull, map: "fk_tb_simulaciones_recurso_solar")
   priceEstimates           ProjectPriceEstimate[]
   internalAnalyses         InternalFinancialAnalysis[]
   legacyAnalysesV1         LegacyFinancialAnalysisV1[]
 
-  @@unique([projectId, version])
-  @@index([projectId, createdAt(sort: Desc)], map: "ix_simulations_project")
-  @@index([status], map: "ix_simulations_status")
-  @@map("simulations")
+  @@unique([projectId, version], map: "uq_tb_simulaciones_proyecto_version")
+  @@index([projectId, createdAt(sort: Desc)], map: "idx_tb_simulaciones_proyecto_creado")
+  @@index([status], map: "idx_tb_simulaciones_estado")
+  @@map("tb_simulaciones")
   @@schema("public")
 }
 
 model ProjectPriceEstimate {
-  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  simulationId      String     @map("simulation_id") @db.Uuid
-  version           Int        @default(1)
-  currency          String     @default("COP") @db.Char(3)
-  estimatedTotalCop Decimal    @map("estimated_total_cop") @db.Decimal(18, 2)
-  includesVat       Boolean    @default(false) @map("includes_vat")
-  estimatedVatCop   Decimal?   @map("estimated_vat_cop") @db.Decimal(18, 2)
-  estimateStatus    String     @default("draft") @map("estimate_status") @db.VarChar(20)
-  priceMethodVersion String    @map("price_method_version") @db.VarChar(40)
-  validUntil        DateTime?  @map("valid_until") @db.Date
-  publicNotes       String?    @map("public_notes")
-  createdBy         String?    @map("created_by") @db.Uuid
-  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  simulation        Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
-  creator           AppUser?   @relation("EstimateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  simulationId      String     @map("simulacion_id") @db.Uuid
+  version           Int        @default(1) @map("version")
+  currency          String     @default("COP") @db.Char(3) @map("moneda")
+  estimatedTotalCop Decimal    @map("total_estimado_cop") @db.Decimal(18, 2)
+  includesVat       Boolean    @default(false) @map("incluye_iva")
+  estimatedVatCop   Decimal?   @map("iva_estimado_cop") @db.Decimal(18, 2)
+  estimateStatus    String     @default("draft") @map("estado_estimacion") @db.VarChar(20)
+  priceMethodVersion String    @map("version_metodologia_precio") @db.VarChar(40)
+  validUntil        DateTime?  @map("vigente_hasta") @db.Date
+  publicNotes       String?    @map("notas_comerciales")
+  createdBy         String?    @map("creado_por") @db.Uuid
+  createdAt         DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+  simulation        Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade, map: "fk_tb_precios_estimados_simulacion")
+  creator           AppUser?   @relation("EstimateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, map: "fk_tb_precios_estimados_creado_por")
   internalAnalyses  InternalFinancialAnalysis[]
 
-  @@unique([simulationId, version])
-  @@index([simulationId, createdAt(sort: Desc)], map: "ix_price_estimates_simulation")
-  @@map("project_price_estimates")
+  @@unique([simulationId, version], map: "uq_tb_precios_estimados_simulacion_version")
+  @@index([simulationId, createdAt(sort: Desc)], map: "idx_tb_precios_estimados_simulacion_creado")
+  @@map("tb_precios_estimados")
   @@schema("public")
 }
 
 model InternalEquipmentCost {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  equipmentId        String           @map("equipment_id") @db.Uuid
-  unitPurchaseCostCop Decimal         @map("unit_purchase_cost_cop") @db.Decimal(18, 2)
-  supplierName       String?           @map("supplier_name") @db.VarChar(160)
-  effectiveFrom      DateTime          @default(dbgenerated("CURRENT_DATE")) @map("effective_from") @db.Date
-  effectiveTo        DateTime?         @map("effective_to") @db.Date
-  recordedBy         String?           @map("recorded_by") @db.Uuid
-  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  equipment          EquipmentCatalog  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  recorder           AppUser?          @relation("EquipmentCostRecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  equipmentId        String           @map("equipo_id") @db.Uuid
+  unitPurchaseCostCop Decimal         @map("costo_adquisicion_unitario_cop") @db.Decimal(18, 2)
+  supplierName       String?           @map("proveedor") @db.VarChar(160)
+  effectiveFrom      DateTime          @default(dbgenerated("CURRENT_DATE")) @map("vigente_desde") @db.Date
+  effectiveTo        DateTime?         @map("vigente_hasta") @db.Date
+  recordedBy         String?           @map("registrado_por") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  equipment          EquipmentCatalog  @relation(fields: [equipmentId], references: [id], onDelete: Cascade, map: "fk_tb_costos_equipos_equipo")
+  recorder           AppUser?          @relation("EquipmentCostRecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull, map: "fk_tb_costos_equipos_registrado_por")
 
-  @@index([equipmentId, effectiveFrom(sort: Desc)], map: "ix_equipment_costs_equipment")
-  @@map("equipment_costs")
+  @@index([equipmentId, effectiveFrom(sort: Desc)], map: "idx_tb_costos_equipos_equipo_vigencia")
+  @@map("tb_costos_equipos")
   @@schema("internal")
 }
 
 model InternalFinancialAnalysis {
-  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  simulationId             String               @map("simulation_id") @db.Uuid
-  priceEstimateId          String?              @map("price_estimate_id") @db.Uuid
-  currency                 String               @default("COP") @db.Char(3)
-  equipmentCostCop         Decimal              @default(0) @map("equipment_cost_cop") @db.Decimal(18, 2)
-  laborCostCop             Decimal              @default(0) @map("labor_cost_cop") @db.Decimal(18, 2)
-  logisticsCostCop         Decimal              @default(0) @map("logistics_cost_cop") @db.Decimal(18, 2)
-  otherDirectCostCop       Decimal              @default(0) @map("other_direct_cost_cop") @db.Decimal(18, 2)
-  contingencyCostCop       Decimal              @default(0) @map("contingency_cost_cop") @db.Decimal(18, 2)
-  totalInternalCostCop     Decimal              @map("total_internal_cost_cop") @db.Decimal(18, 2)
-  estimatedSaleValueCop    Decimal              @map("estimated_sale_value_cop") @db.Decimal(18, 2)
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  simulationId             String               @map("simulacion_id") @db.Uuid
+  priceEstimateId          String?              @map("precio_estimado_id") @db.Uuid
+  currency                 String               @default("COP") @db.Char(3) @map("moneda")
+  equipmentCostCop         Decimal              @default(0) @map("costo_equipos_cop") @db.Decimal(18, 2)
+  laborCostCop             Decimal              @default(0) @map("costo_mano_obra_cop") @db.Decimal(18, 2)
+  logisticsCostCop         Decimal              @default(0) @map("costo_logistica_cop") @db.Decimal(18, 2)
+  otherDirectCostCop       Decimal              @default(0) @map("otros_costos_directos_cop") @db.Decimal(18, 2)
+  contingencyCostCop       Decimal              @default(0) @map("costo_contingencia_cop") @db.Decimal(18, 2)
+  totalInternalCostCop     Decimal              @map("costo_interno_total_cop") @db.Decimal(18, 2)
+  estimatedSaleValueCop    Decimal              @map("valor_venta_estimado_cop") @db.Decimal(18, 2)
   // The SQL migration defines these as GENERATED ALWAYS expressions; Prisma cannot express the expression itself.
-  estimatedGrossProfitCop  Decimal?             @default(dbgenerated()) @map("estimated_gross_profit_cop") @db.Decimal(18, 2)
-  estimatedGrossMarginPct  Decimal?             @default(dbgenerated()) @map("estimated_gross_margin_pct") @db.Decimal(9, 4)
-  estimatedAnnualSavingsCop Decimal?             @map("estimated_annual_savings_cop") @db.Decimal(18, 2)
-  annualOpexCop            Decimal?             @map("annual_opex_cop") @db.Decimal(18, 2)
-  simplePaybackYears       Decimal?             @map("simple_payback_years") @db.Decimal(10, 3)
-  confidentialAssumptions Json                 @default("{}") @map("confidential_assumptions") @db.JsonB
-  createdBy                String?              @map("created_by") @db.Uuid
-  createdAt                DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  simulation               Simulation           @relation(fields: [simulationId], references: [id], onDelete: Cascade)
-  priceEstimate            ProjectPriceEstimate? @relation(fields: [priceEstimateId], references: [id], onDelete: SetNull)
-  creator                  AppUser?             @relation("InternalAnalysisCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  estimatedGrossProfitCop  Decimal?             @default(dbgenerated()) @map("utilidad_bruta_estimada_cop") @db.Decimal(18, 2)
+  estimatedGrossMarginPct  Decimal?             @default(dbgenerated()) @map("margen_bruto_estimado_pct") @db.Decimal(9, 4)
+  estimatedAnnualSavingsCop Decimal?             @map("ahorro_anual_estimado_cop") @db.Decimal(18, 2)
+  annualOpexCop            Decimal?             @map("opex_anual_cop") @db.Decimal(18, 2)
+  simplePaybackYears       Decimal?             @map("periodo_retorno_simple_anios") @db.Decimal(10, 3)
+  confidentialAssumptions Json                 @default("{}") @map("supuestos_confidenciales") @db.JsonB
+  createdBy                String?              @map("creado_por") @db.Uuid
+  createdAt                DateTime             @default(now()) @map("creado_en") @db.Timestamptz(6)
+  simulation               Simulation           @relation(fields: [simulationId], references: [id], onDelete: Cascade, map: "fk_tb_analisis_financieros_simulacion")
+  priceEstimate            ProjectPriceEstimate? @relation(fields: [priceEstimateId], references: [id], onDelete: SetNull, map: "fk_tb_analisis_financieros_precio_estimado")
+  creator                  AppUser?             @relation("InternalAnalysisCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, map: "fk_tb_analisis_financieros_creado_por")
 
-  @@index([simulationId, createdAt(sort: Desc)], map: "ix_internal_financial_analyses_simulation")
-  @@map("financial_analyses")
+  @@index([simulationId, createdAt(sort: Desc)], map: "idx_tb_analisis_financieros_simulacion_creado")
+  @@map("tb_analisis_financieros")
   @@schema("internal")
 }
 
 model LegacyFinancialAnalysisV1 {
-  id                       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  simulationId             String     @map("simulation_id") @db.Uuid
-  currency                 String     @default("COP") @db.Char(3)
-  capexCop                 Decimal?   @map("capex_cop") @db.Decimal(18, 2)
-  estimatedAnnualSavingsCop Decimal?  @map("estimated_annual_savings_cop") @db.Decimal(18, 2)
-  annualOpexCop            Decimal?   @map("annual_opex_cop") @db.Decimal(18, 2)
-  simplePaybackYears       Decimal?   @map("simple_payback_years") @db.Decimal(10, 3)
-  assumptions              Json       @default("{}") @db.JsonB
-  createdAt                DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  simulation               Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  id                       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  simulationId             String     @map("simulacion_id") @db.Uuid
+  currency                 String     @default("COP") @db.Char(3) @map("moneda")
+  capexCop                 Decimal?   @map("inversion_inicial_cop") @db.Decimal(18, 2)
+  estimatedAnnualSavingsCop Decimal?  @map("ahorro_anual_estimado_cop") @db.Decimal(18, 2)
+  annualOpexCop            Decimal?   @map("opex_anual_cop") @db.Decimal(18, 2)
+  simplePaybackYears       Decimal?   @map("periodo_retorno_simple_anios") @db.Decimal(10, 3)
+  assumptions              Json       @default("{}") @db.JsonB @map("supuestos")
+  createdAt                DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+  simulation               Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade, map: "fk_tb_analisis_financieros_legacy_simulacion")
 
-  @@map("legacy_financial_analyses_v1")
+  @@map("tb_analisis_financieros_legacy_v1")
   @@schema("internal")
 }
 
 model AppSetting {
-  settingKey   String   @id @map("setting_key") @db.VarChar(120)
-  settingValue Json     @map("setting_value") @db.JsonB
-  description  String?
-  updatedBy    String?  @map("updated_by") @db.Uuid
-  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updater      AppUser? @relation("SettingUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  settingKey   String   @id @map("clave_configuracion") @db.VarChar(120)
+  settingValue Json     @map("valor_configuracion") @db.JsonB
+  description  String?  @map("descripcion")
+  updatedBy    String?  @map("actualizado_por") @db.Uuid
+  updatedAt    DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  updater      AppUser? @relation("SettingUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull, map: "fk_tb_configuracion_actualizado_por")
 
-  @@map("app_settings")
+  @@map("tb_configuracion")
   @@schema("public")
 }
 
 model AuditEvent {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorId    String?  @map("actor_id") @db.Uuid
-  action     String   @db.VarChar(100)
-  entityType String?  @map("entity_type") @db.VarChar(80)
-  entityId   String?  @map("entity_id") @db.Uuid
-  metadata   Json     @default("{}") @db.JsonB
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  actor      AppUser? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  actorId    String?  @map("usuario_id") @db.Uuid
+  action     String   @db.VarChar(100) @map("accion")
+  entityType String?  @map("tipo_entidad") @db.VarChar(80)
+  entityId   String?  @map("entidad_id") @db.Uuid
+  metadata   Json     @default("{}") @db.JsonB @map("metadatos")
+  createdAt  DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actor      AppUser? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull, map: "fk_tb_auditoria_usuario")
 
-  @@index([createdAt(sort: Desc)], map: "ix_audit_events_time")
-  @@index([actorId], map: "ix_audit_events_actor")
-  @@map("audit_events")
+  @@index([createdAt(sort: Desc)], map: "idx_tb_auditoria_creado")
+  @@index([actorId], map: "idx_tb_auditoria_usuario")
+  @@map("tb_auditoria")
   @@schema("public")
 }

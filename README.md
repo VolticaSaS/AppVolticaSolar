@@ -32,10 +32,12 @@ npm start
 
 ## Modelo de datos y políticas
 
-- `prisma/schema.prisma` es el esquema vigente y usa los esquemas PostgreSQL `public` e `internal`.
+- `prisma/schema.prisma` es el esquema vigente y separa `public` e `internal`. Los modelos Prisma conservan nombres de código en inglés; todas las tablas y columnas físicas usan `@@map`/`@map` con snake_case en español y sin tildes. Las tablas de negocio usan el prefijo `tb_`; índices, únicos y claves foráneas usan `idx_`, `uq_` y `fk_` cuando aplica.
+- La base de datos esperada se llama `db_voltica_solar`. El nombre de la base no se cambia con `@@map`, Prisma ni `DATABASE_URL`: debe existir en PostgreSQL y la URL debe apuntar a ella.
 - `prisma/legacy/schema-v1.prisma` documenta el esquema anterior usado como referencia para datos existentes.
-- `prisma/migrations/20261011090000_v1_baseline` es la migración inicial generada por Prisma a partir del esquema v1; incluye restricciones e índices SQL adicionales.
+- `prisma/migrations/20261011090000_v1_baseline` crea el esquema v1 con nomenclatura física en español, restricciones, índices y triggers adicionales.
 - `prisma/migrations/20261011100000_v2_auth_and_finance` actualiza v1 a v2 y agrega autenticación, sesiones, pertenencias, estimaciones autorizadas y finanzas internas.
+- `prisma/migrations/20261012110000_spanish_physical_identifiers` renombra de forma incremental las tablas, columnas, índices y restricciones físicas a la convención española; conserva la historia v1/v2 y no elimina filas.
 - Costos de adquisición y análisis financieros viven en `internal`; las respuestas de operador usan DTOs con campos permitidos explícitos.
 - Un operador consulta solo proyectos propios/asignados y precio total COP autorizado. Ingeniería puede revisar datos técnicos asignados, pero no costos ni márgenes. Administración gestiona usuarios y finanzas.
 - La auditoría registra actor, acción y entidad; no incluye cuerpos de solicitudes ni valores financieros.
@@ -59,16 +61,22 @@ La rama debe configurarse para desplegar con `npm run build` y `npm start`. En V
 
 Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente con Prisma Migrate. No uses `prisma db push` ni ejecutes manualmente el SQL de estas migraciones.
 
+### Nombre de base y conexión Railway
+
+1. En el entorno **Development**, crea o provisiona una base PostgreSQL llamada `db_voltica_solar`. Si el servicio PostgreSQL actual usa un volumen persistente con otra base, crea una base separada mediante el mecanismo soportado por Railway/PostgreSQL o un servicio PostgreSQL nuevo. No cambies `POSTGRES_DB` en un volumen existente: esa variable no renombra de forma segura la base ya inicializada y puede dejar el servicio apuntando a otro estado.
+2. En el servicio web, configura `DATABASE_URL` como referencia a la conexión privada de PostgreSQL cuando ambos servicios estén en la misma red privada de Railway. Conserva usuario, contraseña, host, puerto y parámetros SSL/query existentes; actualiza solo el nombre de base al final de la ruta a `/db_voltica_solar`. No copies ni publiques la URI. Si Railway entrega una conexión distinta al crear la base, usa la referencia generada por Railway y verifica que su ruta nombre `db_voltica_solar`.
+3. Comprueba el entorno y nombre destino de `DATABASE_URL` antes de cualquier comando de migración. El `.env.example` no incluye valores reales.
+
 ### Base nueva
 
-1. Revisa y aprueba ambos archivos `migration.sql`.
+1. Revisa y aprueba las tres migraciones `migration.sql`.
 2. Haz un respaldo de la base PostgreSQL de Railway Development.
 3. En un terminal/servicio que tenga la referencia `DATABASE_URL` de Development, ejecuta `npm run db:deploy`. Este comando aplica primero la baseline v1 y luego la actualización v2.
-4. Revisa la tabla `_prisma_migrations`, valida datos/tablas y después ejecuta el bootstrap de administrador de forma controlada.
+4. Prisma aplica en orden la baseline, la actualización v2 y los renombres v3. Revisa la tabla `_prisma_migrations`, valida los nombres/tablas y después ejecuta el bootstrap de administrador de forma controlada.
 
 ### Base con v1 ya instalada
 
-1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. Respalda la base y ensaya la migración sobre una copia restaurada.
+1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. La estructura actual de Railway no se ha inspeccionado como parte de este cambio. Respalda la base y ensaya la migración sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. La migración v3 renombra las tablas/columnas v2 al español, también mueve el histórico legado a `internal.tb_analisis_financieros_legacy_v1`, y renombra índices, claves y restricciones sin eliminar filas.
 2. Si v1 se creó previamente sin historial Prisma, registra la baseline como ya aplicada (esto solo registra historial; no ejecuta el archivo baseline):
 
    ```bash
@@ -76,9 +84,9 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
    npm run db:deploy
    ```
 
-3. Si existe historial parcial, tablas creadas con SQL manual, una versión v2 previa u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
+3. Si ya se aplicó v2, `npm run db:deploy` aplicará solo la migración incremental de nomenclatura. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
 
-`db:deploy` altera la base indicada por `DATABASE_URL`. Este cambio requiere autorización explícita antes de ejecutarlo contra Railway Development. La compilación y los comandos de validación no despliegan migraciones automáticamente.
+`db:deploy` altera la base indicada por `DATABASE_URL`. No se ha ejecutado ninguna migración ni se ha eliminado o renombrado ninguna base. Se requiere autorización explícita antes de ejecutar migraciones contra Railway Development. La compilación y los comandos de validación no despliegan migraciones automáticamente.
 
 ### Rollback
 
