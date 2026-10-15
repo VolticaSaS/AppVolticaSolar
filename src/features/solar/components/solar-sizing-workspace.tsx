@@ -1,0 +1,215 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+type SystemType = "on_grid" | "hybrid" | "off_grid";
+
+const systemLabels: Record<SystemType, string> = {
+  on_grid: "On-Grid",
+  hybrid: "Híbrido",
+  off_grid: "Off-Grid",
+};
+
+function Field({
+  label,
+  unit,
+  value,
+  min,
+  max,
+  step = "any",
+  onChange,
+}: {
+  label: string;
+  unit: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number | string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="sizer-field">
+      <span className="sizer-label">{label}</span>
+      <span className="sizer-input-wrap">
+        <input
+          type="number"
+          inputMode="decimal"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <span className="sizer-unit">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+export function SolarSizingWorkspace() {
+  const [projectName, setProjectName] = useState("");
+  const [system, setSystem] = useState<SystemType>("on_grid");
+  const [monthlyUse, setMonthlyUse] = useState(650);
+  const [sunHours, setSunHours] = useState(4.5);
+  const [panelWatts, setPanelWatts] = useState(585);
+  const [lossPercent, setLossPercent] = useState(20);
+  const [autonomyDays, setAutonomyDays] = useState(1);
+  const [hasCalculated, setHasCalculated] = useState(true);
+  const [error, setError] = useState("");
+
+  const result = useMemo(() => {
+    const dailyUse = monthlyUse / 30;
+    const performanceRatio = Math.max(0.01, 1 - lossPercent / 100);
+    const safeSunHours = Math.max(0.1, sunHours);
+    const safePanelWatts = Math.max(1, panelWatts);
+    const arrayKwp = dailyUse / (safeSunHours * performanceRatio);
+    const panelCount = Math.ceil((arrayKwp * 1000) / safePanelWatts);
+    const installedKwp = (panelCount * safePanelWatts) / 1000;
+    const monthlyProduction = installedKwp * safeSunHours * 30 * performanceRatio;
+    const batteryKwh = dailyUse * Math.max(0, autonomyDays) / (0.8 * 0.9);
+    return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
+  }, [autonomyDays, lossPercent, monthlyUse, panelWatts, sunHours]);
+
+  function calculate() {
+    if (
+      monthlyUse <= 0 || monthlyUse > 100_000 ||
+      sunHours <= 0 || sunHours > 10 ||
+      panelWatts <= 0 || panelWatts > 1_000 ||
+      lossPercent < 0 || lossPercent >= 60 ||
+      autonomyDays <= 0 || autonomyDays > 7
+    ) {
+      setError("Revisa los datos: consumo, irradiación, panel y pérdidas deben estar dentro de rangos válidos.");
+      setHasCalculated(false);
+      return;
+    }
+    setError("");
+    setHasCalculated(true);
+  }
+
+  function reset() {
+    setProjectName("");
+    setSystem("on_grid");
+    setMonthlyUse(650);
+    setSunHours(4.5);
+    setPanelWatts(585);
+    setLossPercent(20);
+    setAutonomyDays(1);
+    setError("");
+    setHasCalculated(false);
+  }
+
+  return (
+    <div className="workbench">
+      <aside className="workbench-sidebar" aria-label="Navegación del sistema">
+        <div className="workspace-label">ESPACIO DE TRABAJO</div>
+        <a className="workspace-nav-item active" href="#dimensionador" aria-current="page">
+          <span className="nav-glyph" aria-hidden="true">⌁</span>
+          <span>Dimensionador</span>
+        </a>
+        <div className="workspace-nav-item disabled" aria-disabled="true" title="Disponible próximamente">
+          <span className="nav-glyph" aria-hidden="true">▤</span>
+          <span>Proyectos</span>
+          <span className="nav-soon">Próximo</span>
+        </div>
+        <div className="workspace-nav-item disabled" aria-disabled="true" title="Disponible próximamente">
+          <span className="nav-glyph" aria-hidden="true">▦</span>
+          <span>Equipos</span>
+          <span className="nav-soon">Próximo</span>
+        </div>
+        <div className="sidebar-help">
+          <span className="help-icon" aria-hidden="true">i</span>
+          <div><strong>Estimación preliminar</strong><p>Verifica cada diseño en sitio antes de instalar.</p></div>
+        </div>
+      </aside>
+
+      <main className="sizer-main" id="dimensionador">
+        <div className="sizer-page-heading">
+          <div>
+            <div className="breadcrumbs"><span>Herramientas</span><span aria-hidden="true">/</span><strong>Dimensionador solar</strong></div>
+            <p className="sizer-kicker">DISEÑO TÉCNICO</p>
+            <h1>Dimensionador solar</h1>
+            <p className="sizer-intro">Estima la cantidad de paneles a partir del consumo y el recurso solar del proyecto.</p>
+          </div>
+          <button className="button-reset" type="button" onClick={reset}>＋ <span>Nuevo cálculo</span></button>
+        </div>
+
+        <div className="sizer-grid">
+          <section className="sizer-card input-card" aria-labelledby="project-input-title">
+            <div className="card-heading">
+              <div className="step-badge">01</div>
+              <div><h2 id="project-input-title">Datos del proyecto</h2><p>Completa los datos de entrada del sistema.</p></div>
+            </div>
+
+            <label className="sizer-field project-name-field">
+              <span className="sizer-label">Nombre del proyecto</span>
+              <input className="text-input" placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+            </label>
+
+            <fieldset className="system-selector">
+              <legend className="sizer-label">Modalidad del sistema</legend>
+              <div className="system-options">
+                {(Object.keys(systemLabels) as SystemType[]).map((type) => (
+                  <button key={type} className={`system-option ${system === type ? "selected" : ""}`} type="button" aria-pressed={system === type} onClick={() => setSystem(type)}>
+                    <span className="system-option-mark" aria-hidden="true">{system === type ? "●" : "○"}</span>{systemLabels[type]}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="input-divider" />
+            <div className="form-section-title"><span>Consumo y recurso solar</span><span className="unit-hint">Unidades estándar</span></div>
+            <div className="input-fields">
+              <Field label="Consumo promedio mensual" unit="kWh/mes" value={monthlyUse} min={1} max={100000} onChange={setMonthlyUse} />
+              <Field label="Horas sol pico promedio" unit="h/día" value={sunHours} min={0.1} max={10} step={0.1} onChange={setSunHours} />
+              <Field label="Potencia del panel" unit="Wp" value={panelWatts} min={1} max={1000} onChange={setPanelWatts} />
+            </div>
+
+            <label className="sizer-field loss-field">
+              <span className="loss-label-row"><span className="sizer-label">Pérdidas estimadas</span><strong>{lossPercent}%</strong></span>
+              <input className="loss-slider" type="range" min={0} max={50} step={1} value={lossPercent} onChange={(event) => setLossPercent(Number(event.target.value))} aria-label="Pérdidas estimadas en porcentaje" />
+              <span className="field-hint">Incluye temperatura, cableado, inversor y suciedad.</span>
+            </label>
+
+            {system !== "on_grid" && <div className="battery-input">
+              <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={setAutonomyDays} />
+              <p>Estimación preliminar de batería útil al 80% de profundidad de descarga.</p>
+            </div>}
+
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
+          </section>
+
+          <section className="results-column" aria-labelledby="result-title">
+            <div className="result-card">
+              <div className="result-card-heading">
+                <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculated && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
+                <span className="result-status"><span /> Estimado</span>
+              </div>
+              <div className="system-summary"><span>{systemLabels[system]}</span><span>Panel de {panelWatts} Wp</span></div>
+              <div className="panel-count">
+                <span className="panel-count-label">Cantidad recomendada de paneles</span>
+                <strong>{result.panelCount}</strong>
+                <span className="panel-count-foot">módulos fotovoltaicos</span>
+              </div>
+              <div className="result-metrics">
+                <div><span>Potencia instalada</span><strong>{result.installedKwp.toFixed(2)} <small>kWp</small></strong></div>
+                <div><span>Producción estimada</span><strong>{Math.round(result.monthlyProduction).toLocaleString("es-CO")} <small>kWh/mes</small></strong></div>
+                {system !== "on_grid" && <div><span>Batería útil estimada</span><strong>{result.batteryKwh.toFixed(1)} <small>kWh</small></strong></div>}
+              </div>
+              <div className="result-note"><span aria-hidden="true">ⓘ</span><p>El cálculo considera {result.dailyUse.toFixed(1)} kWh/día y {lossPercent}% de pérdidas. Ajusta las horas sol pico con datos de la ubicación.</p></div>
+            </div>
+
+            <div className="method-card">
+              <h3>¿Cómo se calcula?</h3>
+              <p>Potencia FV = consumo diario ÷ horas sol pico ÷ rendimiento del sistema. La cantidad se redondea al siguiente panel completo.</p>
+              <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - lossPercent)}%</strong></div>
+              <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
+            </div>
+          </section>
+        </div>
+
+        <footer className="sizer-footer"><span>Voltica Solar · Herramienta de dimensionamiento</span><span>Versión preliminar · Validar ingeniería antes de instalar</span></footer>
+      </main>
+    </div>
+  );
+}

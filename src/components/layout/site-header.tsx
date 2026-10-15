@@ -1,27 +1,18 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export function SiteHeader() {
   return (
-    <header className="site-header">
-      <Link className="brand" href="/" aria-label="Voltica Solar, inicio">
-        <span className="brand-icon" aria-hidden="true">✳</span>
-        <span className="brand-label">Voltica <span>Solar</span></span>
+    <header className="app-header">
+      <Link className="app-brand" href="/" aria-label="Voltica Solar, dimensionador">
+        <span className="logo-window"><Image src="/voltica-logo.png" alt="Voltica" width={124} height={124} priority /></span>
+        <span className="brand-divider" />
+        <span className="brand-product">Solar <small>DIMENSIONAMIENTO</small></span>
       </Link>
-      <nav className="main-nav" aria-label="Navegación principal">
-        <a href="#soluciones">Soluciones</a>
-        <a href="#nosotros">Nosotros</a>
-        <Link href="/login">Acceso equipo</Link>
-        <a className="header-cta" href="mailto:hola@voltica.co">Conversemos <span aria-hidden="true">↗</span></a>
-      </nav>
-      <details className="mobile-menu">
-        <summary aria-label="Abrir menú">☰</summary>
-        <nav className="mobile-menu-panel" aria-label="Navegación móvil">
-          <a href="#soluciones">Soluciones</a>
-          <a href="#nosotros">Nosotros</a>
-          <Link href="/login">Acceso equipo</Link>
-          <a href="mailto:hola@voltica.co">Conversemos ↗</a>
-        </nav>
-      </details>
+      <div className="header-tools">
+        <span className="environment-pill"><span /> Herramienta técnica</span>
+        <Link className="login-link" href="/login">Ingresar <span aria-hidden="true">↗</span></Link>
+      </div>
     </header>
   );
 }
