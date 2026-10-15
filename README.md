@@ -59,6 +59,10 @@ También acepta `BOOTSTRAP_ADMIN_NAME`. Introduce las variables desde un gestor 
 
 En Railway, abre la consola del servicio web `AppVolticaSolar` en **Development** y ejecuta `npm run admin:bootstrap` con `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 12 caracteres, con letras, números y un símbolo) y `BOOTSTRAP_ADMIN_NAME` definidos solo para esa sesión. Para la primera cuenta de Voltica, usa `info@voltica.co`. El script verifica que la base activa sea `db_voltica_solar`, crea solo el primer administrador y exige cambio de contraseña al iniciar sesión. No pongas la contraseña en este archivo, Git o las variables permanentes del servicio.
 
+## Recuperación segura del administrador
+
+Si se pierde el acceso, en la consola del servicio `AppVolticaSolar` de Railway **Development** define `ADMIN_RESET_EMAIL` y `ADMIN_RESET_PASSWORD` y ejecuta `npm run admin:reset-password`. El comando solo restablece un administrador activo en `db_voltica_solar`, invalida sus sesiones, registra la acción y exige cambiar la contraseña al iniciar sesión. La nueva clave debe tener al menos 12 caracteres e incluir letras, números y un símbolo. No guardes la clave en Git ni como variable permanente.
+
 ## Flujo de proyectos y versiones
 
 - **Operativo:** crea el proyecto, registra los datos del cliente y del consumo, ejecuta una simulación y la envía a revisión. Puede volver a abrir sus proyectos y preparar una nueva versión si la anterior fue devuelta o aprobada.
