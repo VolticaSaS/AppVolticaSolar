@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthorizationError, type AppRole, assertPermission } from "@/lib/rbac/policy";
 import { getCurrentUser, type AuthenticatedUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/prisma";
+import { isSameOriginRequest } from "@/lib/security/origin";
 
 export class AuthenticationError extends Error {
   readonly status = 401;
@@ -69,11 +70,5 @@ export async function requireProjectAccess(user: AuthenticatedUser, projectId: s
 }
 
 export function assertSameOrigin(request: Request): void {
-  const origin = request.headers.get("origin");
-  if (!origin) throw new AuthorizationError();
-  try {
-    if (new URL(origin).host !== new URL(request.url).host) throw new AuthorizationError();
-  } catch {
-    throw new AuthorizationError();
-  }
+  if (!isSameOriginRequest(request)) throw new AuthorizationError();
 }
