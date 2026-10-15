@@ -22,8 +22,8 @@ export function ChangePasswordForm() {
     finally { setBusy(false); }
   }
   return <form onSubmit={submit} className="mt-8 space-y-5">
-    <label className="block text-sm font-medium text-slate-700">Contraseña actual<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label>
-    <label className="block text-sm font-medium text-slate-700">Nueva contraseña (mínimo 12 caracteres)<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label>
+    <label className="block text-sm font-medium text-slate-700">Contraseña actual<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /><span className="mt-1 block text-xs font-normal text-slate-500">Mínimo 12 caracteres, con letras, números y al menos un símbolo.</span></label>
+    <label className="block text-sm font-medium text-slate-700">Nueva contraseña<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3" /></label>
     {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     <button disabled={busy} className="w-full rounded-xl bg-[#005000] px-5 py-3 font-semibold text-white disabled:opacity-60">{busy ? "Actualizando…" : "Actualizar contraseña"}</button>
   </form>;

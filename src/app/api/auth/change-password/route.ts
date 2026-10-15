@@ -6,9 +6,10 @@ import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { hashPassword, verifyPassword } from "@/lib/security/password";
 import { writeAuditEvent } from "@/lib/audit";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE, PASSWORD_MAX_LENGTH } from "@/lib/security/password-policy";
 
 export const dynamic = "force-dynamic";
-const schema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: z.string().min(12).max(128) });
+const schema = z.object({ currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH), newPassword: z.string().min(12).max(PASSWORD_MAX_LENGTH) });
 
 export async function POST(request: Request) {
   try {
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
     const user = await requireApiUser();
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return invalidInput();
+    if (!isStrongPassword(parsed.data.newPassword)) {
+      return NextResponse.json({ error: PASSWORD_POLICY_MESSAGE }, { status: 400 });
+    }
     const prisma = getPrisma();
     const credential = await prisma.appUser.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
     if (!credential || !(await verifyPassword(credential.passwordHash, parsed.data.currentPassword))) {

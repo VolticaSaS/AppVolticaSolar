@@ -5,6 +5,7 @@ import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { writeAuditEvent } from "@/lib/audit";
 import { hashPassword } from "@/lib/security/password";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE, PASSWORD_MAX_LENGTH } from "@/lib/security/password-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ const createUserSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
   email: z.string().trim().email().max(255),
   role: z.enum(["admin", "operator", "engineer", "reviewer"]),
-  password: z.string().min(12).max(128),
+  password: z.string().min(12).max(PASSWORD_MAX_LENGTH),
 });
 
 export async function GET() {
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
     const actor = await requireApiRole(["admin"]);
     const parsed = createUserSchema.safeParse(await request.json());
     if (!parsed.success) return invalidInput();
+    if (!isStrongPassword(parsed.data.password)) {
+      return NextResponse.json({ error: PASSWORD_POLICY_MESSAGE }, { status: 400 });
+    }
     const email = parsed.data.email.toLowerCase();
     const user = await getPrisma().appUser.create({
       data: {

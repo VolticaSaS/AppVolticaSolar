@@ -2,14 +2,15 @@ import { config as loadEnv } from "dotenv";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/security/password";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../src/lib/security/password-policy";
 
 loadEnv({ path: [".env.local", ".env"] });
 
 const connectionString = process.env.DATABASE_URL;
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
 const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
-if (!connectionString || !email || !password || password.length < 16) {
-  throw new Error("Configura DATABASE_URL, BOOTSTRAP_ADMIN_EMAIL y una BOOTSTRAP_ADMIN_PASSWORD de al menos 16 caracteres.");
+if (!connectionString || !email || !password || !isStrongPassword(password)) {
+  throw new Error(`Configura DATABASE_URL, BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD. ${PASSWORD_POLICY_MESSAGE}`);
 }
 if (process.env.RAILWAY_ENVIRONMENT_NAME !== "Development" || process.env.RAILWAY_SERVICE_NAME !== "AppVolticaSolar") {
   throw new Error("El bootstrap solo se permite desde AppVolticaSolar en Railway Development.");

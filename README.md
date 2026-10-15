@@ -51,13 +51,13 @@ No se crea ningún usuario por defecto. El bootstrap se ejecuta una sola vez con
 
 ```bash
 BOOTSTRAP_ADMIN_EMAIL=admin@tu-dominio.example \
-BOOTSTRAP_ADMIN_PASSWORD='una-frase-aleatoria-de-al-menos-16-caracteres' \
+BOOTSTRAP_ADMIN_PASSWORD='una-clave-de-12-o-mas-caracteres-con-letras-numeros-y-simbolo' \
 npm run admin:bootstrap
 ```
 
 También acepta `BOOTSTRAP_ADMIN_NAME`. Introduce las variables desde un gestor de secretos o el entorno seguro del servicio; no las guardes en Git ni en archivos persistentes. El script no imprime la contraseña, marca la cuenta para cambio de contraseña y falla si ya existe un admin o el correo está ocupado. Retira las variables de bootstrap del entorno tras usarlo.
 
-En Railway, abre la consola del servicio web `AppVolticaSolar` en **Development** y ejecuta `npm run admin:bootstrap` con `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 16 caracteres) y `BOOTSTRAP_ADMIN_NAME` definidos solo para esa sesión. Para la primera cuenta de Voltica, usa `info@voltica.co`. El script verifica que la base activa sea `db_voltica_solar`, crea solo el primer administrador y exige cambio de contraseña al iniciar sesión. No pongas la contraseña en este archivo, Git o las variables permanentes del servicio.
+En Railway, abre la consola del servicio web `AppVolticaSolar` en **Development** y ejecuta `npm run admin:bootstrap` con `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 12 caracteres, con letras, números y un símbolo) y `BOOTSTRAP_ADMIN_NAME` definidos solo para esa sesión. Para la primera cuenta de Voltica, usa `info@voltica.co`. El script verifica que la base activa sea `db_voltica_solar`, crea solo el primer administrador y exige cambio de contraseña al iniciar sesión. No pongas la contraseña en este archivo, Git o las variables permanentes del servicio.
 
 ## Flujo de proyectos y versiones
 
