@@ -71,7 +71,7 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
 
 ### Base nueva
 
-1. Revisa las cuatro migraciones SQL y crea un respaldo restaurable de PostgreSQL Development.
+1. Revisa las cinco migraciones SQL y crea un respaldo restaurable de PostgreSQL Development.
 2. Abre una shell en la instancia desplegada de `AppVolticaSolar` en Development (requiere Railway CLI/SSH habilitado; el servicio PostgreSQL sigue privado). Desde una terminal autenticada y vinculada al proyecto, ejecuta primero:
 
    ```bash
@@ -85,14 +85,14 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
    railway ssh --environment Development --service AppVolticaSolar -- npm run db:deploy
    ```
 
-   El wrapper vuelve a consultar `current_database()` antes de ejecutar Prisma, muestra el resultado de `migrate deploy` sin mostrar la URL, y al final confirma las tablas de `public`/`internal` y las cuatro entradas terminadas de `_prisma_migrations`. No está configurado en el inicio ni en el comando normal de despliegue.
+   El wrapper vuelve a consultar `current_database()` antes de ejecutar Prisma, muestra el resultado de `migrate deploy` sin mostrar la URL, y al final confirma las tablas de `public`/`internal` y las cinco entradas terminadas de `_prisma_migrations`. No está configurado en el inicio ni en el comando normal de despliegue.
 4. Si todo termina correctamente, conserva el log como registro y luego realiza el bootstrap administrativo solo mediante su procedimiento separado y seguro.
 
 ### Base con v1 ya instalada
 
-1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. El wrapper se detiene si encuentra tablas de negocio sin `_prisma_migrations`; no se debe intentar ejecutar la baseline sobre tablas existentes. Respalda la base y ensaya la actualización sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. El costo de catálogo v1 se transfiere a `internal.equipment_costs` antes de retirar su columna pública. La migración v3 renombra las tablas/columnas v2 al español y la v4 amplía los roles para revisión técnica.
+1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. El wrapper se detiene si encuentra tablas de negocio sin `_prisma_migrations`; no se debe intentar ejecutar la baseline sobre tablas existentes. Respalda la base y ensaya la actualización sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. El costo de catálogo v1 se transfiere a `internal.equipment_costs` antes de retirar su columna pública. La migración v3 renombra las tablas/columnas v2 al español, la v4 amplía los roles para revisión técnica y la v5 agrega identidad legal y dirección de contacto de clientes.
 2. Si v1 se creó previamente sin historial Prisma, el wrapper detendrá la operación al detectar tablas sin historial. No ejecutes directamente `prisma migrate resolve`: primero solicita una reconciliación revisada con el DBA, valida que todas las tablas, columnas y restricciones coinciden con la baseline en una sesión conectada a `db_voltica_solar`, y registra la baseline solo después de esa comprobación. `migrate resolve` registra historial y no ejecuta el archivo baseline.
-3. Si ya se aplicó v3, `db:status` debe mostrar únicamente la migración del perfil revisor pendiente y `db:deploy` aplicará ese ajuste incremental. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
+3. Si ya se aplicó v3, `db:status` mostrará las migraciones incrementales v4 y v5 pendientes; después de revisar el estado, `db:deploy` aplicará esos ajustes. Si ya se aplicó v4, solo debe aparecer v5 pendiente. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
 
 `db:deploy` altera la base indicada por `DATABASE_URL`. El guard también requiere las variables Railway `RAILWAY_ENVIRONMENT_NAME=Development` y `RAILWAY_SERVICE_NAME=AppVolticaSolar`, además de que PostgreSQL confirme el nombre de base correcto. No ejecutes este comando desde Production. La compilación y los comandos de inicio normales no despliegan migraciones automáticamente.
 
@@ -113,3 +113,9 @@ src/features/           Funcionalidades de dominio e interfaz
 ```
 
 El seed opcional `prisma/seed.ts` solo crea parámetros demostrativos no financieros; nunca crea usuarios. No ejecutes migraciones en producción desde este cambio.
+
+## Datos del cliente en cada análisis
+
+El formulario del dimensionador pide tipo de persona, nombre completo o razón social, cédula o NIT, teléfono y dirección del cliente. Para empresas también solicita el contacto responsable. La dirección del sitio de instalación se registra aparte cuando sea distinta. El usuario autenticado que envía el análisis queda asociado automáticamente como responsable; el formulario nunca permite asignar ese dato a otra cuenta.
+
+La API vuelve a validar los campos en el servidor: correspondencia entre persona natural/cédula y persona jurídica/NIT, longitud de cédula, dígito de verificación del NIT colombiano y formato de teléfono. La migración `20261015100000_client_legal_identity` agrega las columnas y restricciones como campos anulables para conservar clientes históricos. Debe revisarse y ejecutarse manualmente en Development con el procedimiento anterior; este cambio no la ejecuta.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { isValidColombianIdentification, isValidPhone } from "@/lib/validation/colombian-identification";
 
 type SystemType = "on_grid" | "hybrid" | "off_grid";
 
@@ -48,6 +49,13 @@ function Field({
 
 export function SolarSizingWorkspace() {
   const [projectName, setProjectName] = useState("");
+  const [legalType, setLegalType] = useState<"natural_person" | "legal_entity">("natural_person");
+  const [legalName, setLegalName] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [installationAddress, setInstallationAddress] = useState("");
   const [system, setSystem] = useState<SystemType>("on_grid");
   const [monthlyUse, setMonthlyUse] = useState(650);
   const [sunHours, setSunHours] = useState(4.5);
@@ -91,12 +99,20 @@ export function SolarSizingWorkspace() {
 
   async function submitForReview() {
     if (!projectName.trim()) { setError("Escribe el nombre del proyecto antes de enviarlo a revisión."); return; }
+    if (legalName.trim().length < 3) { setError(legalType === "natural_person" ? "Escribe el nombre completo del cliente." : "Escribe la razón social de la empresa."); return; }
+    if (!isValidColombianIdentification(taxId, legalType)) {
+      setError(legalType === "natural_person" ? "La cédula debe tener entre 6 y 10 dígitos." : "El NIT debe tener 9 dígitos y un dígito de verificación válido.");
+      return;
+    }
+    if (legalType === "legal_entity" && contactName.trim().length < 3) { setError("Indica quién es el contacto responsable de la empresa."); return; }
+    if (clientAddress.trim().length < 5) { setError("Escribe la dirección del cliente."); return; }
+    if (!isValidPhone(contactPhone)) { setError("Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos."); return; }
     if (!hasCalculated) { setError("Primero calcula el dimensionamiento con datos válidos."); return; }
     setSaving(true); setError(""); setSubmitted("");
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectName, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
+        body: JSON.stringify({ projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
@@ -107,6 +123,13 @@ export function SolarSizingWorkspace() {
 
   function reset() {
     setProjectName("");
+    setLegalType("natural_person");
+    setLegalName("");
+    setTaxId("");
+    setContactName("");
+    setClientAddress("");
+    setContactPhone("");
+    setInstallationAddress("");
     setSystem("on_grid");
     setMonthlyUse(650);
     setSunHours(4.5);
@@ -163,6 +186,42 @@ export function SolarSizingWorkspace() {
             <label className="sizer-field project-name-field">
               <span className="sizer-label">Nombre del proyecto</span>
               <input className="text-input" placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+            </label>
+
+            <div className="form-section-title"><span>Datos del cliente</span><span className="unit-hint">Se guardan con el proyecto</span></div>
+            <label className="sizer-field project-name-field">
+              <span className="sizer-label">Tipo de persona</span>
+              <select className="text-input" value={legalType} onChange={(event) => { setLegalType(event.target.value as "natural_person" | "legal_entity"); setTaxId(""); }}>
+                <option value="natural_person">Persona natural</option>
+                <option value="legal_entity">Persona jurídica</option>
+              </select>
+            </label>
+            <label className="sizer-field project-name-field">
+              <span className="sizer-label">{legalType === "natural_person" ? "Nombre completo" : "Razón social"}</span>
+              <input className="text-input" autoComplete="name" placeholder={legalType === "natural_person" ? "Nombre y apellidos" : "Nombre legal de la empresa"} value={legalName} onChange={(event) => setLegalName(event.target.value)} />
+            </label>
+            <label className="sizer-field project-name-field">
+              <span className="sizer-label">{legalType === "natural_person" ? "Cédula" : "NIT"}</span>
+              <input className="text-input" inputMode="numeric" autoComplete="off" placeholder={legalType === "natural_person" ? "Número de identificación" : "Ej. 900123456-3"} value={taxId} onChange={(event) => setTaxId(event.target.value)} aria-describedby="tax-id-hint" />
+              <span className="field-hint" id="tax-id-hint">{legalType === "natural_person" ? "De 6 a 10 dígitos." : "9 dígitos más el dígito de verificación; se valida automáticamente."}</span>
+            </label>
+            {legalType === "legal_entity" && <label className="sizer-field project-name-field">
+              <span className="sizer-label">Persona de contacto responsable</span>
+              <input className="text-input" autoComplete="name" placeholder="Nombre de quien solicita el análisis" value={contactName} onChange={(event) => setContactName(event.target.value)} />
+            </label>}
+            <div className="input-fields client-contact-fields">
+              <label className="sizer-field">
+                <span className="sizer-label">Teléfono</span>
+                <input className="text-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="+57 300 123 4567" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
+              </label>
+              <label className="sizer-field">
+                <span className="sizer-label">Dirección del cliente</span>
+                <input className="text-input" autoComplete="street-address" placeholder="Dirección de contacto" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
+              </label>
+            </div>
+            <label className="sizer-field project-name-field">
+              <span className="sizer-label">Dirección de instalación <span className="unit-hint">(si es distinta)</span></span>
+              <input className="text-input" placeholder="Lugar donde se instalaría el sistema" value={installationAddress} onChange={(event) => setInstallationAddress(event.target.value)} />
             </label>
 
             <fieldset className="system-selector">

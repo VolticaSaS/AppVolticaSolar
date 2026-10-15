@@ -70,8 +70,11 @@ model AuthSession {
 model Client {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
   legalName    String    @map("nombre_legal") @db.VarChar(200)
+  legalType    String?   @map("tipo_persona") @db.VarChar(20)
   clientType   String    @default("business") @map("tipo_cliente") @db.VarChar(30)
+  taxIdType    String?   @map("tipo_identificacion") @db.VarChar(20)
   taxId        String?   @map("identificacion_fiscal") @db.VarChar(40)
+  address      String?   @map("direccion")
   contactName  String?   @map("nombre_contacto") @db.VarChar(160)
   contactEmail String?   @map("correo_contacto") @db.VarChar(255)
   contactPhone String?   @map("telefono_contacto") @db.VarChar(40)

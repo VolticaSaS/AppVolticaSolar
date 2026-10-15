@@ -13,6 +13,7 @@ const MIGRATIONS = [
   "20261011100000_v2_auth_and_finance",
   "20261012110000_spanish_physical_identifiers",
   "20261014120000_add_reviewer_role",
+  "20261015100000_client_legal_identity",
 ];
 const REQUIRED_TABLES = [
   ["public", "tb_usuarios"],

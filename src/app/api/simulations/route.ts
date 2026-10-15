@@ -5,16 +5,39 @@ import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { writeAuditEvent } from "@/lib/audit";
 import type { Prisma } from "@/generated/prisma/client";
+import { isValidColombianIdentification, isValidPhone, normalizeIdentification } from "@/lib/validation/colombian-identification";
 
 export const dynamic = "force-dynamic";
 const schema = z.object({
   projectName: z.string().trim().min(2).max(200),
+  legalType: z.enum(["natural_person", "legal_entity"]),
+  legalName: z.string().trim().min(3).max(200),
+  taxIdType: z.enum(["cedula", "nit"]),
+  taxId: z.string().trim().min(6).max(20),
+  contactName: z.string().trim().max(160).optional().default(""),
+  clientAddress: z.string().trim().min(5).max(500),
+  contactPhone: z.string().trim().min(7).max(25),
+  installationAddress: z.string().trim().max(500).optional().default(""),
   systemType: z.enum(["on_grid", "hybrid", "off_grid"]),
   energyKwhMonth: z.number().positive().max(100_000),
   peakSunHoursDay: z.number().positive().max(10),
   panelPowerW: z.number().positive().max(1_000),
   lossesPercent: z.number().min(0).max(59),
   autonomyDays: z.number().positive().max(7),
+}).superRefine((input, context) => {
+  const expectedDocument = input.legalType === "natural_person" ? "cedula" : "nit";
+  if (input.taxIdType !== expectedDocument) {
+    context.addIssue({ code: "custom", path: ["taxIdType"], message: "El tipo de documento no corresponde al tipo de persona." });
+  }
+  if (input.legalType === "legal_entity" && input.contactName.trim().length < 3) {
+    context.addIssue({ code: "custom", path: ["contactName"], message: "Indica quién es el contacto responsable de la empresa." });
+  }
+  if (!isValidColombianIdentification(input.taxId, input.legalType)) {
+    context.addIssue({ code: "custom", path: ["taxId"], message: "La cédula debe tener de 6 a 10 dígitos. El NIT debe tener 9 dígitos y un dígito de verificación válido." });
+  }
+  if (!isValidPhone(input.contactPhone)) {
+    context.addIssue({ code: "custom", path: ["contactPhone"], message: "Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos." });
+  }
 });
 
 // Server-side recalculation is authoritative; only the resulting technical data is stored.
@@ -40,9 +63,20 @@ export async function POST(request: Request) {
     const now = new Date();
     const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const simulation = await getPrisma().$transaction(async (tx) => {
-      const client = await tx.client.create({ data: { legalName: input.projectName, clientType: "business", createdBy: actor.id } });
+      const isLegalEntity = input.legalType === "legal_entity";
+      const client = await tx.client.create({ data: {
+        legalName: input.legalName,
+        legalType: input.legalType,
+        clientType: isLegalEntity ? "business" : "residential",
+        taxIdType: input.taxIdType,
+        taxId: normalizeIdentification(input.taxId),
+        contactName: input.contactName.trim() || (isLegalEntity ? null : input.legalName),
+        contactPhone: input.contactPhone.trim(),
+        address: input.clientAddress,
+        createdBy: actor.id,
+      } });
       const project = await tx.project.create({ data: {
-        clientId: client.id, name: input.projectName, systemType: input.systemType, status: "in_review", ownerId: actor.id,
+        clientId: client.id, name: input.projectName, address: input.installationAddress || null, systemType: input.systemType, status: "in_review", ownerId: actor.id,
         memberships: { createMany: { data: reviewers.map((reviewer) => ({ userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id })) } },
         energyConsumption: { create: { periodMonth: month, energyKwh: input.energyKwhMonth, source: "manual" } },
         solarResourceInputs: { create: { source: "manual", peakSunHoursDay: input.peakSunHoursDay, retrievedAt: now, assumptions: { capture: "user_input" } as Prisma.InputJsonObject } },
