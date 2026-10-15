@@ -11,9 +11,16 @@ const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 if (!connectionString || !email || !password || password.length < 16) {
   throw new Error("Configura DATABASE_URL, BOOTSTRAP_ADMIN_EMAIL y una BOOTSTRAP_ADMIN_PASSWORD de al menos 16 caracteres.");
 }
+if (process.env.RAILWAY_ENVIRONMENT_NAME !== "Development" || process.env.RAILWAY_SERVICE_NAME !== "AppVolticaSolar") {
+  throw new Error("El bootstrap solo se permite desde AppVolticaSolar en Railway Development.");
+}
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 try {
+  const rows = await prisma.$queryRaw<Array<{ database_name: string }>>`SELECT current_database() AS database_name`;
+  if (rows[0]?.database_name !== "db_voltica_solar") {
+    throw new Error("La conexión del bootstrap debe apuntar a db_voltica_solar; no se creó ningún usuario.");
+  }
   const existingAdmin = await prisma.appUser.findFirst({ where: { role: "admin" }, select: { id: true } });
   if (existingAdmin) throw new Error("Ya existe un administrador; el bootstrap solo se permite una vez.");
   const existingUser = await prisma.appUser.findFirst({ where: { email }, select: { id: true } });

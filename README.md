@@ -57,6 +57,17 @@ npm run admin:bootstrap
 
 También acepta `BOOTSTRAP_ADMIN_NAME`. Introduce las variables desde un gestor de secretos o el entorno seguro del servicio; no las guardes en Git ni en archivos persistentes. El script no imprime la contraseña, marca la cuenta para cambio de contraseña y falla si ya existe un admin o el correo está ocupado. Retira las variables de bootstrap del entorno tras usarlo.
 
+En Railway, abre la consola del servicio web `AppVolticaSolar` en **Development** y ejecuta `npm run admin:bootstrap` con `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (mínimo 16 caracteres) y `BOOTSTRAP_ADMIN_NAME` definidos solo para esa sesión. Para la primera cuenta de Voltica, usa `info@voltica.co`. El script verifica que la base activa sea `db_voltica_solar`, crea solo el primer administrador y exige cambio de contraseña al iniciar sesión. No pongas la contraseña en este archivo, Git o las variables permanentes del servicio.
+
+## Flujo de proyectos y versiones
+
+- **Operativo:** crea el proyecto, registra los datos del cliente y del consumo, ejecuta una simulación y la envía a revisión. Puede volver a abrir sus proyectos y preparar una nueva versión si la anterior fue devuelta o aprobada.
+- **Ingeniero:** puede trabajar en proyectos que le asignen y preparar ajustes técnicos. No tiene permisos financieros ni puede aprobar su propio cálculo.
+- **Revisor técnico:** recibe una versión asignada, consulta únicamente datos del diseño y la aprueba o la devuelve con observaciones. Su aprobación marca esa versión como final.
+- **Administrador:** gestiona usuarios, consulta todos los proyectos y sus datos comerciales/financieros, y asigna el responsable operativo.
+
+Cada envío queda como una versión inmutable. Mientras una versión espera revisión, el operativo no puede enviar otra. Una devolución permite preparar la siguiente versión; una aprobación la cierra como resultado final. Si luego cambia el diseño, se crea una versión nueva y se somete de nuevo a revisión. La versión anterior y su decisión se conservan para auditoría.
+
 ## Railway: preparar PostgreSQL y migraciones
 
 La rama debe configurarse para desplegar con `npm run build` y `npm start`. En Variables del servicio web referencia `DATABASE_URL` del servicio PostgreSQL de Railway (no copies la URI al repositorio). Para usar la base **Railway Development**, confirma primero que el servicio y la variable apunten al entorno Development.

@@ -40,9 +40,9 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
     <div className="mb-8"><p className="text-xs font-bold uppercase tracking-widest text-[#005000]">Administración</p><h1 className="mt-2 text-3xl font-semibold">Usuarios y perfiles</h1><p className="mt-2 max-w-3xl text-sm text-slate-600">Asigna solo los permisos necesarios. Las contraseñas iniciales no se guardan en texto abierto y cada usuario deberá cambiarlas al ingresar.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
         ["Administrador", "Gestiona usuarios, catálogos, precios, costos y auditoría."],
-        ["Operativo", "Registra proyectos, simula y consulta solo el total autorizado."],
-        ["Ingeniero", "Prepara y envía dimensionamientos a revisión; no aprueba los propios."],
-        ["Revisor técnico", "Aprueba o devuelve cálculos asignados; no ve costos ni márgenes."],
+        ["Operativo", "Crea el proyecto, registra cliente y consumo, prepara versiones y consulta solo el precio total autorizado."],
+        ["Ingeniero", "Ajusta el dimensionamiento en proyectos asignados y revisa supuestos técnicos; no ve costos ni márgenes."],
+        ["Revisor técnico", "Revisa de forma independiente, aprueba la versión final o la devuelve con observaciones; no ve costos ni márgenes."],
       ].map(([title, detail]) => <div key={title} className="rounded-xl border border-green-100 bg-green-50 p-4"><strong className="text-sm text-[#005000]">{title}</strong><p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p></div>)}</div>
     </div>
     <div className="grid gap-6 lg:grid-cols-[.8fr_1.2fr]">

@@ -65,6 +65,9 @@ button { cursor: pointer; }
 .sizer-field { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
 .sizer-label { color: #46534a; font-size: 10px; font-weight: 700; }
 .project-name-field { margin-bottom: 17px; }
+.project-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; margin-bottom: 17px; }
+.project-new-button { min-height: 39px; margin-bottom: 0; padding-inline: 12px; }
+.form-hint-box { margin: -6px 0 16px; border-radius: 6px; background: #f4f8f3; padding: 10px 12px; color: #46534a; font-size: 10px; line-height: 1.5; }
 .text-input, .sizer-input-wrap { width: 100%; min-height: 39px; border: 1px solid #dce4dc; border-radius: 6px; background: #fff; }
 .text-input { padding: 0 11px; outline: none; color: #2c382f; font-size: 11px; }
 .text-input::placeholder { color: #a2aca3; }

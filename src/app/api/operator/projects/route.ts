@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { requireApiRole } from "@/lib/auth/guards";
+import { getPrisma } from "@/lib/prisma";
+import { apiError } from "@/lib/http/api";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    const user = await requireApiRole(["operator", "engineer"]);
+    const projects = await getPrisma().project.findMany({
+      where: {
+        OR: [
+          { ownerId: user.id },
+          { memberships: { some: { userId: user.id, accessRole: user.role } } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true, name: true, status: true, address: true, systemType: true, updatedAt: true,
+        client: { select: { legalName: true, legalType: true, taxIdType: true, taxId: true, address: true, contactName: true, contactPhone: true } },
+        simulations: {
+          orderBy: { version: "desc" }, take: 1,
+          select: { id: true, version: true, status: true, reviewNotes: true, resultPanelCount: true, resultPvKwp: true, designInputs: true },
+        },
+      },
+    });
+    return NextResponse.json({ projects: projects.map((project) => ({
+      id: project.id, name: project.name, status: project.status, address: project.address,
+      systemType: project.systemType, updatedAt: project.updatedAt.toISOString(), client: project.client,
+      latestSimulation: project.simulations[0] ? {
+        id: project.simulations[0].id, version: project.simulations[0].version,
+        status: project.simulations[0].status, reviewNotes: project.simulations[0].reviewNotes,
+        panelCount: project.simulations[0].resultPanelCount,
+        pvKwp: project.simulations[0].resultPvKwp?.toString() ?? null,
+        inputs: {
+          energyKwhMonth: (project.simulations[0].designInputs as Record<string, unknown>).energy_kwh_month ?? null,
+          peakSunHoursDay: (project.simulations[0].designInputs as Record<string, unknown>).peak_sun_hours_day ?? null,
+          panelPowerW: (project.simulations[0].designInputs as Record<string, unknown>).panel_power_w ?? null,
+          lossesPercent: (project.simulations[0].designInputs as Record<string, unknown>).losses_percent ?? null,
+          autonomyDays: (project.simulations[0].designInputs as Record<string, unknown>).autonomy_days ?? null,
+        },
+      } : null,
+    })) });
+  } catch (error) {
+    return apiError(error);
+  }
+}

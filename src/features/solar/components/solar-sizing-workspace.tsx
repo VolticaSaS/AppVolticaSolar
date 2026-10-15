@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isValidColombianIdentification, isValidPhone } from "@/lib/validation/colombian-identification";
 
 type SystemType = "on_grid" | "hybrid" | "off_grid";
+type SavedProject = {
+  id: string; name: string; status: string; address: string | null; systemType: SystemType | null;
+  client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
+  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown } } | null;
+};
 
 const systemLabels: Record<SystemType, string> = {
   on_grid: "On-Grid",
@@ -48,6 +53,8 @@ function Field({
 }
 
 export function SolarSizingWorkspace() {
+  const [projects, setProjects] = useState<SavedProject[]>([]);
+  const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
   const [legalType, setLegalType] = useState<"natural_person" | "legal_entity">("natural_person");
   const [legalName, setLegalName] = useState("");
@@ -66,6 +73,48 @@ export function SolarSizingWorkspace() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState("");
+
+  async function loadProjects() {
+    const response = await fetch("/api/operator/projects", { cache: "no-store" });
+    if (!response.ok) throw new Error("No se pudieron cargar tus proyectos.");
+    setProjects((await response.json() as { projects: SavedProject[] }).projects);
+  }
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/operator/projects", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("No se pudieron cargar tus proyectos.");
+        return response.json() as Promise<{ projects: SavedProject[] }>;
+      })
+      .then((data) => { if (active) setProjects(data.projects); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  function selectProject(nextId: string) {
+    setProjectId(nextId);
+    const project = projects.find((item) => item.id === nextId);
+    if (!project) return;
+    setProjectName(project.name);
+    setLegalType(project.client.legalType ?? "natural_person");
+    setLegalName(project.client.legalName);
+    setTaxId(project.client.taxId ?? "");
+    setContactName(project.client.contactName ?? "");
+    setClientAddress(project.client.address ?? "");
+    setContactPhone(project.client.contactPhone ?? "");
+    setInstallationAddress(project.address ?? "");
+    if (project.systemType) setSystem(project.systemType);
+    const inputs = project.latestSimulation?.inputs;
+    if (inputs) {
+      if (inputs.energyKwhMonth != null) setMonthlyUse(Number(inputs.energyKwhMonth));
+      if (inputs.peakSunHoursDay != null) setSunHours(Number(inputs.peakSunHoursDay));
+      if (inputs.panelPowerW != null) setPanelWatts(Number(inputs.panelPowerW));
+      if (inputs.lossesPercent != null) setLossPercent(Number(inputs.lossesPercent));
+      if (inputs.autonomyDays != null) setAutonomyDays(Number(inputs.autonomyDays));
+    }
+    setError(""); setSubmitted(""); setHasCalculated(true);
+  }
 
   const result = useMemo(() => {
     const dailyUse = monthlyUse / 30;
@@ -112,17 +161,20 @@ export function SolarSizingWorkspace() {
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
+        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
-      setSubmitted(`Cálculo ${data.simulation.id.slice(0, 8)} enviado a revisión técnica.`);
+      setProjectId(data.simulation.projectId);
+      setSubmitted(`Versión ${data.simulation.version} guardada y enviada a revisión técnica.`);
+      void loadProjects().catch(() => undefined);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo enviar el cálculo."); }
     finally { setSaving(false); }
   }
 
   function reset() {
     setProjectName("");
+    setProjectId("");
     setLegalType("natural_person");
     setLegalName("");
     setTaxId("");
@@ -187,6 +239,18 @@ export function SolarSizingWorkspace() {
               <span className="sizer-label">Nombre del proyecto</span>
               <input className="text-input" placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
             </label>
+            <div className="project-picker-row">
+              <label className="sizer-field">
+                <span className="sizer-label">Continuar un proyecto</span>
+                <select className="text-input" value={projectId} onChange={(event) => selectProject(event.target.value)}>
+                  <option value="">Nuevo proyecto…</option>
+                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name} · {project.latestSimulation ? `v${project.latestSimulation.version} · ${project.latestSimulation.status}` : project.status}</option>)}
+                </select>
+              </label>
+              {projectId && <button type="button" className="button-reset project-new-button" onClick={reset}>Nuevo</button>}
+            </div>
+            {projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review" && <p className="form-hint-box">Esta versión está en revisión. Podrás preparar una nueva cuando el revisor la apruebe o la devuelva.</p>}
+            {projects.find((project) => project.id === projectId)?.latestSimulation?.status === "rejected" && <p className="form-hint-box">Devuelto por el revisor: {projects.find((project) => project.id === projectId)?.latestSimulation?.reviewNotes || "Revisa las observaciones y guarda una nueva versión."}</p>}
 
             <div className="form-section-title"><span>Datos del cliente</span><span className="unit-hint">Se guardan con el proyecto</span></div>
             <label className="sizer-field project-name-field">
@@ -256,7 +320,7 @@ export function SolarSizingWorkspace() {
 
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
-            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : "Guardar y enviar a revisión técnica"}</button>
+            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving || projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review"} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : projectId ? "Guardar nueva versión y enviar a revisión" : "Guardar y enviar a revisión técnica"}</button>
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
 

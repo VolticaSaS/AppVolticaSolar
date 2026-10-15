@@ -67,9 +67,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ simul
     await requireProjectAccess(user, simulation.projectId);
     if (simulation.createdBy === user.id) throw new AuthorizationError();
     if (simulation.status !== "needs_review") throw new AuthorizationError();
-    const changed = await getPrisma().simulation.updateMany({
-      where: { id: simulationId, status: "needs_review" },
-      data: { status: parsed.data.decision, reviewedBy: user.id, reviewedAt: new Date(), reviewNotes: parsed.data.notes ?? null },
+    const changed = await getPrisma().$transaction(async (tx) => {
+      const simulationUpdate = await tx.simulation.updateMany({
+        where: { id: simulationId, status: "needs_review" },
+        data: { status: parsed.data.decision, reviewedBy: user.id, reviewedAt: new Date(), reviewNotes: parsed.data.notes ?? null },
+      });
+      if (simulationUpdate.count === 1) {
+        await tx.project.update({ where: { id: simulation.projectId }, data: { status: parsed.data.decision, updatedAt: new Date() } });
+      }
+      return simulationUpdate;
     });
     if (changed.count !== 1) throw new AuthorizationError();
     await writeAuditEvent({ actorId: user.id, action: `simulation.${parsed.data.decision}`, entityType: "simulation", entityId: simulationId });
