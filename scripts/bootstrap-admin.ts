@@ -1,7 +1,9 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/security/password";
+
+loadEnv({ path: [".env.local", ".env"] });
 
 const connectionString = process.env.DATABASE_URL;
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();

@@ -9,7 +9,7 @@ import { writeAuditEvent } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const updateUserSchema = z.object({
-  role: z.enum(["admin", "operator", "engineer"]).optional(),
+  role: z.enum(["admin", "operator", "engineer", "reviewer"]).optional(),
   isActive: z.boolean().optional(),
 }).refine((value) => value.role !== undefined || value.isActive !== undefined);
 

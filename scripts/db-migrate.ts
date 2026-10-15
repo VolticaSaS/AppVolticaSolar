@@ -1,7 +1,9 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { Client } from "pg";
+
+loadEnv({ path: [".env.local", ".env"] });
 
 const EXPECTED_DATABASE = "db_voltica_solar";
 const EXPECTED_ENVIRONMENT = "Development";
@@ -10,6 +12,7 @@ const MIGRATIONS = [
   "20261011090000_v1_baseline",
   "20261011100000_v2_auth_and_finance",
   "20261012110000_spanish_physical_identifiers",
+  "20261014120000_add_reviewer_role",
 ];
 const REQUIRED_TABLES = [
   ["public", "tb_usuarios"],

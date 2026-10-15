@@ -53,15 +53,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Correo o contraseña incorrectos." }, { status: 401 });
     }
 
-    const isLocked = user.lockedUntil !== null && user.lockedUntil > new Date();
+    const now = new Date();
+    const isLocked = user.lockedUntil !== null && user.lockedUntil > now;
+    const lockoutExpired = user.lockedUntil !== null && user.lockedUntil <= now;
     const passwordIsValid = await verifyPassword(user.passwordHash, parsed.data.password);
     if (!user.isActive || isLocked || !passwordIsValid || !isAppRole(user.role)) {
       if (user.isActive && !isLocked && !passwordIsValid) {
-        const nextAttempts = user.failedLoginAttempts + 1;
+        const nextAttempts = (lockoutExpired ? 0 : user.failedLoginAttempts) + 1;
         await prisma.appUser.update({
           where: { id: user.id },
           data: {
-            failedLoginAttempts: { increment: 1 },
+            failedLoginAttempts: nextAttempts,
             ...(nextAttempts >= MAX_FAILED_ATTEMPTS ? { lockedUntil: new Date(Date.now() + LOCKOUT_MS) } : {}),
           },
         });

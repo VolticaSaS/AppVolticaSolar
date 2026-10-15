@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const createUserSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
   email: z.string().trim().email().max(255),
-  role: z.enum(["admin", "operator", "engineer"]),
+  role: z.enum(["admin", "operator", "engineer", "reviewer"]),
   password: z.string().min(12).max(128),
 });
 

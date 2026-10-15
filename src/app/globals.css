@@ -92,6 +92,7 @@ button { cursor: pointer; }
 .battery-input .sizer-field { max-width: 220px; }
 .battery-input p { margin: 7px 0 0; color: #879287; font-size: 9px; }
 .form-error { margin: 14px 0 0; color: #a12f27; font-size: 10px; }
+.form-success { margin: 12px 0 0; color: var(--voltica); font-size: 11px; font-weight: 700; }
 .calculate-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 42px; margin-top: 20px; border: 0; border-radius: 6px; background: var(--voltica); color: #fff; font-size: 11px; font-weight: 700; transition: background .15s ease; }
 .calculate-button:hover { background: var(--voltica-dark); }
 .calculate-button span { font-size: 14px; }

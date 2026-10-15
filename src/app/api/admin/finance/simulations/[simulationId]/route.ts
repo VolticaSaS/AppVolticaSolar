@@ -90,6 +90,12 @@ export async function POST(request: Request, context: { params: Promise<{ simula
     if (!parsed.success) return NextResponse.json({ error: "Los datos enviados no son válidos." }, { status: 400 });
     const { simulationId } = await context.params;
     const fields = parsed.data;
+    if (fields.priceEstimateId) {
+      const estimate = await getPrisma().projectPriceEstimate.findUnique({
+        where: { id: fields.priceEstimateId }, select: { simulationId: true },
+      });
+      if (!estimate || estimate.simulationId !== simulationId) return NextResponse.json({ error: "La estimación no corresponde a esta simulación." }, { status: 400 });
+    }
     const totalCents = [fields.equipmentCostCop, fields.laborCostCop, fields.logisticsCostCop, fields.otherDirectCostCop, fields.contingencyCostCop]
       .reduce((sum, amount) => sum + toCents(amount), 0n);
     if (totalCents >= 1000000000000000000n) return NextResponse.json({ error: "Los datos enviados no son válidos." }, { status: 400 });

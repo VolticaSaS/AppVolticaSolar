@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser, assertSameOrigin } from "@/lib/auth/guards";
-import { createSession, revokeCurrentSession } from "@/lib/auth/session";
+import { createSession } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { hashPassword, verifyPassword } from "@/lib/security/password";
@@ -21,12 +21,14 @@ export async function POST(request: Request) {
     if (!credential || !(await verifyPassword(credential.passwordHash, parsed.data.currentPassword))) {
       return NextResponse.json({ error: "La contraseña actual no es correcta." }, { status: 400 });
     }
-    await prisma.appUser.update({
-      where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.newPassword), mustChangePassword: false },
-      select: { id: true },
+    await prisma.$transaction(async (tx) => {
+      await tx.appUser.update({
+        where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.newPassword), mustChangePassword: false },
+        select: { id: true },
+      });
+      await tx.authSession.deleteMany({ where: { userId: user.id } });
     });
     await writeAuditEvent({ actorId: user.id, action: "auth.password_change", entityType: "app_user", entityId: user.id });
-    await revokeCurrentSession();
     await createSession(user.id);
     return NextResponse.json({ ok: true });
   } catch (error) { return apiError(error); }

@@ -7,12 +7,15 @@ describe("autorización por rol", () => {
     expect(hasPermission("admin", "finance:read")).toBe(true);
     expect(() => assertPermission("operator", "finance:read")).toThrow(AuthorizationError);
     expect(() => assertPermission("engineer", "finance:read")).toThrow(AuthorizationError);
+    expect(() => assertPermission("reviewer", "finance:read")).toThrow(AuthorizationError);
     expect(() => assertPermission("operator", "export:internal")).toThrow(AuthorizationError);
     expect(() => assertPermission("engineer", "export:internal")).toThrow(AuthorizationError);
   });
 
-  it("solo ingeniería revisa simulaciones y operativo no administra usuarios", () => {
-    expect(hasPermission("engineer", "simulation:review")).toBe(true);
+  it("solo revisor técnico aprueba simulaciones y operativo no administra usuarios", () => {
+    expect(hasPermission("reviewer", "simulation:review")).toBe(true);
+    expect(hasPermission("engineer", "simulation:review")).toBe(false);
+    expect(hasPermission("reviewer", "simulation:write")).toBe(false);
     expect(hasPermission("operator", "simulation:review")).toBe(false);
     expect(() => assertPermission("operator", "user:manage")).toThrow(AuthorizationError);
   });
@@ -22,6 +25,7 @@ describe("autorización por rol", () => {
     expect(canAccessProject("operator", "stranger", project)).toBe(false);
     expect(canAccessProject("operator", "member", project)).toBe(true);
     expect(canAccessProject("engineer", "member", project)).toBe(false);
+    expect(canAccessProject("reviewer", "member", { ...project, memberships: [{ userId: "member", accessRole: "reviewer" }] })).toBe(true);
     expect(canAccessProject("admin", "stranger", project)).toBe(true);
   });
 

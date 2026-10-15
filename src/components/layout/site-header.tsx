@@ -1,7 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
+import { getCurrentUser } from "@/lib/auth/session";
+import { LogoutButton } from "@/features/auth/components/logout-button";
 
-export function SiteHeader() {
+const roleNames = { admin: "Administrador", operator: "Operativo", engineer: "Ingeniero", reviewer: "Revisor técnico" } as const;
+
+export async function SiteHeader() {
+  const user = await getCurrentUser();
+  const workHref = user?.role === "admin" ? "/admin" : user?.role === "reviewer" ? "/reviewer" : "/";
   return (
     <header className="app-header">
       <Link className="app-brand" href="/" aria-label="Voltica Solar, dimensionador">
@@ -10,8 +16,8 @@ export function SiteHeader() {
         <span className="brand-product">Solar <small>DIMENSIONAMIENTO</small></span>
       </Link>
       <div className="header-tools">
-        <span className="environment-pill"><span /> Herramienta técnica</span>
-        <Link className="login-link" href="/login">Ingresar <span aria-hidden="true">↗</span></Link>
+        <span className="environment-pill"><span /> {user ? roleNames[user.role] : "Herramienta técnica"}</span>
+        {user ? <><Link className="login-link" href={workHref}>Mi espacio</Link><LogoutButton /></> : <Link className="login-link" href="/login">Ingresar <span aria-hidden="true">↗</span></Link>}
       </div>
     </header>
   );

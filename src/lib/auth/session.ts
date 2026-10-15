@@ -73,5 +73,5 @@ export async function revokeCurrentSession(): Promise<void> {
 }
 
 export function isAppRole(value: string): value is AppRole {
-  return value === "admin" || value === "operator" || value === "engineer";
+  return value === "admin" || value === "operator" || value === "engineer" || value === "reviewer";
 }

@@ -17,7 +17,7 @@ export function LoginForm() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No fue posible iniciar sesión.");
-      router.push("/dashboard"); router.refresh();
+      router.push("/"); router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : "No fue posible iniciar sesión."); }
     finally { setBusy(false); }
   }

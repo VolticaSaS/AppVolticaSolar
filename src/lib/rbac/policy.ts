@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "operator" | "engineer";
+export type AppRole = "admin" | "operator" | "engineer" | "reviewer";
 export type Permission =
   | "project:read"
   | "project:write"
@@ -18,7 +18,8 @@ const permissionMap: Record<AppRole, ReadonlySet<Permission>> = {
     "finance:read", "finance:write", "user:manage", "catalog:write", "audit:read", "export:internal",
   ]),
   operator: new Set(["project:read", "project:write", "simulation:write", "estimate:read"]),
-  engineer: new Set(["project:read", "simulation:review", "estimate:read"]),
+  engineer: new Set(["project:read", "project:write", "simulation:write", "estimate:read"]),
+  reviewer: new Set(["project:read", "simulation:review", "estimate:read"]),
 };
 
 export class AuthorizationError extends Error {

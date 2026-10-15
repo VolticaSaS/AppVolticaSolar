@@ -56,6 +56,8 @@ export function SolarSizingWorkspace() {
   const [autonomyDays, setAutonomyDays] = useState(1);
   const [hasCalculated, setHasCalculated] = useState(true);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState("");
 
   const result = useMemo(() => {
     const dailyUse = monthlyUse / 30;
@@ -71,6 +73,7 @@ export function SolarSizingWorkspace() {
   }, [autonomyDays, lossPercent, monthlyUse, panelWatts, sunHours]);
 
   function calculate() {
+    setSubmitted("");
     if (
       monthlyUse <= 0 || monthlyUse > 100_000 ||
       sunHours <= 0 || sunHours > 10 ||
@@ -86,6 +89,22 @@ export function SolarSizingWorkspace() {
     setHasCalculated(true);
   }
 
+  async function submitForReview() {
+    if (!projectName.trim()) { setError("Escribe el nombre del proyecto antes de enviarlo a revisión."); return; }
+    if (!hasCalculated) { setError("Primero calcula el dimensionamiento con datos válidos."); return; }
+    setSaving(true); setError(""); setSubmitted("");
+    try {
+      const response = await fetch("/api/simulations", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectName, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
+      setSubmitted(`Cálculo ${data.simulation.id.slice(0, 8)} enviado a revisión técnica.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo enviar el cálculo."); }
+    finally { setSaving(false); }
+  }
+
   function reset() {
     setProjectName("");
     setSystem("on_grid");
@@ -95,6 +114,7 @@ export function SolarSizingWorkspace() {
     setLossPercent(20);
     setAutonomyDays(1);
     setError("");
+    setSubmitted("");
     setHasCalculated(false);
   }
 
@@ -177,6 +197,8 @@ export function SolarSizingWorkspace() {
 
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
+            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : "Guardar y enviar a revisión técnica"}</button>
+            {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
 
           <section className="results-column" aria-labelledby="result-title">

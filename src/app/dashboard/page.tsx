@@ -1,13 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/auth/guards";
 
 export default async function DashboardPage() {
-  const user = await requirePageRole(["admin", "operator", "engineer"]);
-  const copy = {
-    admin: { title: "Administración", detail: "Gestiona usuarios, catálogo, costos internos, precios y auditoría." },
-    operator: { title: "Proyectos", detail: "Crea proyectos, registra consumos y consulta los precios totales autorizados." },
-    engineer: { title: "Revisión técnica", detail: "Valida simulaciones y resultados técnicos sin acceso a márgenes internos." },
-  }[user.role];
+  const user = await requirePageRole(["admin", "operator", "engineer", "reviewer"]);
+  if (user.role === "admin") redirect("/admin");
+  if (user.role === "reviewer") redirect("/reviewer");
+  if (user.role === "operator" || user.role === "engineer") redirect("/");
+  const copy = { title: "Panel de trabajo", detail: "Selecciona una tarea para continuar." };
   return <main className="mx-auto max-w-6xl px-6 py-16">
     <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#005000]">Panel de trabajo · {user.role}</p>
     <h1 className="mt-3 text-4xl font-semibold text-slate-900">Hola, {user.fullName}</h1>
