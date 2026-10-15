@@ -12,6 +12,11 @@ ALTER TABLE "public"."tb_clientes"
   ADD CONSTRAINT "ck_tb_clientes_identificacion_coherente"
     CHECK (
       ("tipo_persona" IS NULL AND "tipo_identificacion" IS NULL)
-      OR ("tipo_persona" = 'natural_person' AND "tipo_identificacion" = 'cedula')
-      OR ("tipo_persona" = 'legal_entity' AND "tipo_identificacion" = 'nit')
+      OR (
+        "tipo_persona" IS NOT NULL AND "tipo_identificacion" IS NOT NULL
+        AND (
+          ("tipo_persona" = 'natural_person' AND "tipo_identificacion" = 'cedula')
+          OR ("tipo_persona" = 'legal_entity' AND "tipo_identificacion" = 'nit')
+        )
+      )
     );
