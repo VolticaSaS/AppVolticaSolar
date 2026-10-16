@@ -11,6 +11,8 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   async function fetchUsers() {
     const response = await fetch("/api/admin/users", { cache: "no-store" });
     if (!response.ok) throw new Error("No se pudo cargar la lista de usuarios.");
@@ -36,6 +38,17 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
     if (!response.ok) { setError(data.error ?? "No se pudo actualizar el usuario."); return; }
     setMessage("Permisos actualizados."); await load();
   }
+  async function resetPassword(user: User) {
+    setError(""); setMessage("");
+    const response = await fetch(`/api/admin/users/${user.id}/password`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: temporaryPassword }),
+    });
+    const data = await response.json();
+    if (!response.ok) { setError(data.error ?? "No se pudo restablecer la contraseña."); return; }
+    setResettingUserId(null); setTemporaryPassword("");
+    setMessage(`Contraseña restablecida para ${user.email}. Deberá cambiarla al iniciar sesión.`);
+  }
   return <div className="mx-auto max-w-6xl px-6 py-10">
     <div className="mb-8"><p className="text-xs font-bold uppercase tracking-widest text-[#005000]">Administración</p><h1 className="mt-2 text-3xl font-semibold">Usuarios y perfiles</h1><p className="mt-2 max-w-3xl text-sm text-slate-600">Asigna solo los permisos necesarios. Las contraseñas iniciales no se guardan en texto abierto y cada usuario deberá cambiarlas al ingresar.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[
@@ -56,9 +69,9 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
       </form>
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-semibold">Cuentas del equipo</h2>
-        <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="py-3">Persona</th><th>Perfil</th><th>Estado</th><th>Acceso</th></tr></thead><tbody>
-          {users.map((user) => <tr key={user.id} className="border-b last:border-0"><td className="py-4 pr-3"><strong className="block">{user.fullName}</strong><span className="text-xs text-slate-500">{user.email}</span></td><td><select aria-label={`Perfil de ${user.fullName}`} value={user.role} disabled={user.id === currentUserId} onChange={(event) => void update(user, { role: event.target.value as Role })} className="rounded border border-slate-300 bg-white px-2 py-1.5 disabled:opacity-50">{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td><td>{user.isActive ? "Activo" : "Inactivo"}</td><td><button disabled={user.id === currentUserId} onClick={() => void update(user, { isActive: !user.isActive })} className="text-xs font-semibold text-[#005000] underline disabled:text-slate-400">{user.isActive ? "Desactivar" : "Activar"}</button></td></tr>)}
-          {!users.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Cargando usuarios…</td></tr>}
+        <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="py-3">Persona</th><th>Perfil</th><th>Estado</th><th>Acceso</th><th>Contraseña</th></tr></thead><tbody>
+          {users.map((user) => <tr key={user.id} className="border-b last:border-0"><td className="py-4 pr-3"><strong className="block">{user.fullName}</strong><span className="text-xs text-slate-500">{user.email}</span></td><td><select aria-label={`Perfil de ${user.fullName}`} value={user.role} disabled={user.id === currentUserId} onChange={(event) => void update(user, { role: event.target.value as Role })} className="rounded border border-slate-300 bg-white px-2 py-1.5 disabled:opacity-50">{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td><td>{user.isActive ? "Activo" : "Inactivo"}</td><td><button disabled={user.id === currentUserId} onClick={() => void update(user, { isActive: !user.isActive })} className="text-xs font-semibold text-[#005000] underline disabled:text-slate-400">{user.isActive ? "Desactivar" : "Activar"}</button></td><td>{user.id === currentUserId ? <span className="text-xs text-slate-500">Usa Cambiar contraseña</span> : resettingUserId === user.id ? <div className="flex min-w-64 flex-col gap-2"><input aria-label={`Nueva contraseña temporal para ${user.fullName}`} type="password" minLength={12} maxLength={128} autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} placeholder="Clave temporal" className="rounded border border-slate-300 px-2 py-1.5" /><span className="text-xs text-slate-500">12+ caracteres, letras, números y símbolo.</span><div className="flex gap-2"><button type="button" onClick={() => void resetPassword(user)} className="text-xs font-semibold text-[#005000] underline">Guardar</button><button type="button" onClick={() => { setResettingUserId(null); setTemporaryPassword(""); }} className="text-xs text-slate-500 underline">Cancelar</button></div></div> : <button type="button" onClick={() => { setTemporaryPassword(""); setResettingUserId(user.id); }} className="text-xs font-semibold text-[#005000] underline">Restablecer</button>}</td></tr>)}
+          {!users.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Cargando usuarios…</td></tr>}
         </tbody></table></div>
       </section>
     </div>

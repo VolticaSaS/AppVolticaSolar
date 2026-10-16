@@ -16,7 +16,8 @@
     "db:deploy": "tsx scripts/db-migrate.ts deploy",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "postinstall": "prisma generate",
-    "admin:reset-password": "tsx scripts/admin-reset-password.ts"
+    "admin:reset-password": "tsx scripts/admin-reset-password.ts",
+    "operator:create": "tsx scripts/create-operator.ts"
   },
   "engines": {
     "node": ">=20.19.0"

@@ -63,6 +63,8 @@ En Railway, abre la consola del servicio web `AppVolticaSolar` en **Development*
 
 Si se pierde el acceso, en la consola del servicio `AppVolticaSolar` de Railway **Development** define `ADMIN_RESET_EMAIL` y `ADMIN_RESET_PASSWORD` y ejecuta `npm run admin:reset-password`. El comando solo restablece un administrador activo en `db_voltica_solar`, invalida sus sesiones, registra la acción y exige cambiar la contraseña al iniciar sesión. La nueva clave debe tener al menos 12 caracteres e incluir letras, números y un símbolo. No guardes la clave en Git ni como variable permanente.
 
+Para crear la cuenta inicial del operador Daniel Romero en Development, define `OPERATOR_EMAIL`, `OPERATOR_FULL_NAME` y `OPERATOR_PASSWORD` con una clave temporal y ejecuta `npm run operator:create`. El comando verifica el servicio y la base, crea un usuario operativo activo y le obliga a cambiar la contraseña al iniciar sesión. También se puede crear usuarios desde **Administración → Usuarios y perfiles**.
+
 ## Flujo de proyectos y versiones
 
 - **Operativo:** crea el proyecto, registra los datos del cliente y del consumo, ejecuta una simulación y la envía a revisión. Puede volver a abrir sus proyectos y preparar una nueva versión si la anterior fue devuelta o aprobada.
