@@ -39,6 +39,8 @@ export async function GET() {
           panelPowerW: (project.simulations[0].designInputs as Record<string, unknown>).panel_power_w ?? null,
           lossesPercent: (project.simulations[0].designInputs as Record<string, unknown>).losses_percent ?? null,
           autonomyDays: (project.simulations[0].designInputs as Record<string, unknown>).autonomy_days ?? null,
+          energyRateCopKwh: (project.simulations[0].designInputs as Record<string, unknown>).energy_rate_cop_kwh ?? null,
+          estimatedInvestmentCop: (project.simulations[0].designInputs as Record<string, unknown>).estimated_investment_cop ?? null,
         },
       } : null,
     })) });
