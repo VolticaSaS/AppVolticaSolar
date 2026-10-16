@@ -26,8 +26,13 @@ const schema = z.object({
   panelPowerW: z.number().positive().max(1_000),
   lossesPercent: z.number().min(0).max(59),
   autonomyDays: z.number().positive().max(7),
+  energyRateCopKwh: z.number().positive().max(1_000_000).optional(),
+  estimatedInvestmentCop: z.number().positive().max(100_000_000_000).optional(),
 }).superRefine((input, context) => {
   const expectedDocument = input.legalType === "natural_person" ? "cedula" : "nit";
+  if ((input.energyRateCopKwh === undefined) !== (input.estimatedInvestmentCop === undefined)) {
+    context.addIssue({ code: "custom", path: ["estimatedInvestmentCop"], message: "Para calcular el ROI, indica tanto la tarifa de energía como la inversión estimada." });
+  }
   if (input.taxIdType !== expectedDocument) {
     context.addIssue({ code: "custom", path: ["taxIdType"], message: "El tipo de documento no corresponde al tipo de persona." });
   }
@@ -54,7 +59,8 @@ export async function POST(request: Request) {
       getPrisma().appUser.findFirst({ where: { role: "reviewer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
       getPrisma().appUser.findFirst({ where: { role: "engineer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
     ]);
-    if (!reviewer) return NextResponse.json({ error: "Administración debe crear al menos un revisor técnico antes de enviar cálculos." }, { status: 409 });
+    // Save the operator's calculation even when no reviewer exists; it remains a draft until review can be assigned.
+    const workflowStatus = reviewer ? "needs_review" : "draft";
 
     let existingProject: { id: string; clientId: string } | null = null;
     let previous: { version: number; status: string } | null = null;
@@ -98,9 +104,9 @@ export async function POST(request: Request) {
         await tx.client.update({ where: { id: existingProject.clientId }, data: clientData });
         await tx.project.update({ where: { id: existingProject.id }, data: {
           name: input.projectName, address: input.installationAddress || null, systemType: input.systemType,
-          status: "in_review", updatedAt: now,
+          status: reviewer ? "in_review" : "draft", updatedAt: now,
         } });
-        await tx.projectMembership.upsert({
+        if (reviewer) await tx.projectMembership.upsert({
           where: { projectId_userId: { projectId: existingProject.id, userId: reviewer.id } },
           create: { projectId: existingProject.id, userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id },
           update: {},
@@ -122,9 +128,9 @@ export async function POST(request: Request) {
       } else {
         const client = await tx.client.create({ data: { ...clientData, createdBy: actor.id } });
         const project = await tx.project.create({ data: {
-          clientId: client.id, name: input.projectName, address: input.installationAddress || null, systemType: input.systemType, status: "in_review", ownerId: actor.id,
+          clientId: client.id, name: input.projectName, address: input.installationAddress || null, systemType: input.systemType, status: reviewer ? "in_review" : "draft", ownerId: actor.id,
           memberships: { createMany: { data: [
-            { userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id },
+            ...(reviewer ? [{ userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id }] : []),
             ...(engineer ? [{ userId: engineer.id, accessRole: "engineer", assignedBy: actor.id }] : []),
           ] } },
           energyConsumption: { create: { periodMonth: month, energyKwh: input.energyKwhMonth, source: "manual" } },
@@ -141,6 +147,7 @@ export async function POST(request: Request) {
         designInputs: {
           energy_kwh_month: input.energyKwhMonth, peak_sun_hours_day: input.peakSunHoursDay,
           panel_power_w: input.panelPowerW, losses_percent: input.lossesPercent, autonomy_days: input.autonomyDays,
+          energy_rate_cop_kwh: input.energyRateCopKwh ?? null, estimated_investment_cop: input.estimatedInvestmentCop ?? null,
           client: { legal_type: input.legalType, legal_name: input.legalName, tax_id_type: input.taxIdType, tax_id: normalizeIdentification(input.taxId), address: input.clientAddress, contact_name: input.contactName, contact_phone: input.contactPhone },
         },
         calculationMethodVersion: "preliminary-v1", resultPanelCount: panelCount, resultPvKwp: pvKwpInstalled,
@@ -148,11 +155,11 @@ export async function POST(request: Request) {
         resultBatteryNominalKwh: batteryNominal, resultBatteryUsableKwh: batteryUsable,
         resultDetails: { pv_kwp_required: pvKwpRequired, performance_ratio: performanceRatio, methodology: "consumo diario / HSP / rendimiento" },
         warnings: ["Dimensionamiento preliminar; requiere validación de ingeniería antes de cotizar o instalar."],
-        status: "needs_review",
+        status: workflowStatus,
       }, select: { id: true, projectId: true, resultPanelCount: true, version: true } });
     }, { isolationLevel: "Serializable" });
-    await writeAuditEvent({ actorId: actor.id, action: "simulation.submit_for_review", entityType: "simulation", entityId: simulation.id });
-    return NextResponse.json({ simulation: { id: simulation.id, projectId: simulation.projectId, version: simulation.version, panelCount: simulation.resultPanelCount, status: "needs_review" } }, { status: 201 });
+    await writeAuditEvent({ actorId: actor.id, action: workflowStatus === "needs_review" ? "simulation.submit_for_review" : "simulation.save_draft", entityType: "simulation", entityId: simulation.id });
+    return NextResponse.json({ simulation: { id: simulation.id, projectId: simulation.projectId, version: simulation.version, panelCount: simulation.resultPanelCount, status: workflowStatus } }, { status: 201 });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
       return NextResponse.json({ error: "El proyecto recibió otro envío al mismo tiempo. Recarga y vuelve a intentar." }, { status: 409 });
