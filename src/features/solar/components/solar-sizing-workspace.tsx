@@ -7,7 +7,7 @@ type SystemType = "on_grid" | "hybrid" | "off_grid";
 type SavedProject = {
   id: string; name: string; status: string; address: string | null; systemType: SystemType | null;
   client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
-  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown } } | null;
+  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown } } | null;
 };
 
 const systemLabels: Record<SystemType, string> = {
@@ -69,6 +69,8 @@ export function SolarSizingWorkspace() {
   const [panelWatts, setPanelWatts] = useState(585);
   const [lossPercent, setLossPercent] = useState(20);
   const [autonomyDays, setAutonomyDays] = useState(1);
+  const [energyRateCopKwh, setEnergyRateCopKwh] = useState(0);
+  const [estimatedInvestmentCop, setEstimatedInvestmentCop] = useState(0);
   const [hasCalculated, setHasCalculated] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -106,6 +108,8 @@ export function SolarSizingWorkspace() {
     setInstallationAddress(project.address ?? "");
     if (project.systemType) setSystem(project.systemType);
     const inputs = project.latestSimulation?.inputs;
+    setEnergyRateCopKwh(Number(inputs?.energyRateCopKwh ?? 0));
+    setEstimatedInvestmentCop(Number(inputs?.estimatedInvestmentCop ?? 0));
     if (inputs) {
       if (inputs.energyKwhMonth != null) setMonthlyUse(Number(inputs.energyKwhMonth));
       if (inputs.peakSunHoursDay != null) setSunHours(Number(inputs.peakSunHoursDay));
@@ -129,14 +133,31 @@ export function SolarSizingWorkspace() {
     return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
   }, [autonomyDays, lossPercent, monthlyUse, panelWatts, sunHours]);
 
+  const roi = useMemo(() => {
+    const monthlyOffsetKwh = Math.min(monthlyUse, result.monthlyProduction);
+    const annualSavingsCop = monthlyOffsetKwh * energyRateCopKwh * 12;
+    return {
+      annualSavingsCop,
+      roiPercent: estimatedInvestmentCop > 0 ? (annualSavingsCop / estimatedInvestmentCop) * 100 : 0,
+      paybackYears: annualSavingsCop > 0 ? estimatedInvestmentCop / annualSavingsCop : 0,
+    };
+  }, [energyRateCopKwh, estimatedInvestmentCop, monthlyUse, result.monthlyProduction]);
+
   function calculate() {
     setSubmitted("");
+    if ((energyRateCopKwh > 0) !== (estimatedInvestmentCop > 0)) {
+      setError("Para calcular el ROI, completa tanto la tarifa de energía como la inversión estimada.");
+      setHasCalculated(false);
+      return;
+    }
     if (
       monthlyUse <= 0 || monthlyUse > 100_000 ||
       sunHours <= 0 || sunHours > 10 ||
       panelWatts <= 0 || panelWatts > 1_000 ||
       lossPercent < 0 || lossPercent >= 60 ||
-      autonomyDays <= 0 || autonomyDays > 7
+      autonomyDays <= 0 || autonomyDays > 7 ||
+      energyRateCopKwh < 0 || energyRateCopKwh > 1_000_000 ||
+      estimatedInvestmentCop < 0 || estimatedInvestmentCop > 100_000_000_000
     ) {
       setError("Revisa los datos: consumo, irradiación, panel y pérdidas deben estar dentro de rangos válidos.");
       setHasCalculated(false);
@@ -161,12 +182,14 @@ export function SolarSizingWorkspace() {
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays }),
+        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
       setProjectId(data.simulation.projectId);
-      setSubmitted(`Versión ${data.simulation.version} guardada y enviada a revisión técnica.`);
+      setSubmitted(data.simulation.status === "needs_review"
+        ? `Versión ${data.simulation.version} guardada y enviada a revisión técnica.`
+        : `Versión ${data.simulation.version} guardada como borrador. Administración deberá asignar un revisor para continuar.`);
       void loadProjects().catch(() => undefined);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo enviar el cálculo."); }
     finally { setSaving(false); }
@@ -188,6 +211,8 @@ export function SolarSizingWorkspace() {
     setPanelWatts(585);
     setLossPercent(20);
     setAutonomyDays(1);
+    setEnergyRateCopKwh(0);
+    setEstimatedInvestmentCop(0);
     setError("");
     setSubmitted("");
     setHasCalculated(false);
@@ -313,6 +338,14 @@ export function SolarSizingWorkspace() {
               <span className="field-hint">Incluye temperatura, cableado, inversor y suciedad.</span>
             </label>
 
+            <div className="input-divider" />
+            <div className="form-section-title"><span>Retorno estimado para el cliente</span><span className="unit-hint">Opcional · COP</span></div>
+            <p className="field-hint">Ingresa la tarifa de energía y el valor total estimado de la oferta. No se usan costos internos.</p>
+            <div className="input-fields">
+              <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} min={0} max={1000000} step={100} onChange={setEnergyRateCopKwh} />
+              <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} min={0} max={100000000000} step={100000} onChange={setEstimatedInvestmentCop} />
+            </div>
+
             {system !== "on_grid" && <div className="battery-input">
               <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={setAutonomyDays} />
               <p>Estimación preliminar de batería útil al 80% de profundidad de descarga.</p>
@@ -342,6 +375,16 @@ export function SolarSizingWorkspace() {
                 {system !== "on_grid" && <div><span>Batería útil estimada</span><strong>{result.batteryKwh.toFixed(1)} <small>kWh</small></strong></div>}
               </div>
               <div className="result-note"><span aria-hidden="true">ⓘ</span><p>El cálculo considera {result.dailyUse.toFixed(1)} kWh/día y {lossPercent}% de pérdidas. Ajusta las horas sol pico con datos de la ubicación.</p></div>
+              <div className="input-divider" />
+              <div className="form-section-title"><span>ROI simple preliminar</span><span className="unit-hint">Sin financiación ni O&amp;M</span></div>
+              {energyRateCopKwh > 0 && estimatedInvestmentCop > 0 ? <>
+                <div className="result-metrics">
+                  <div><span>Ahorro anual estimado</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.annualSavingsCop)}</strong></div>
+                  <div><span>Retorno anual estimado</span><strong>{roi.roiPercent.toFixed(1)}%</strong></div>
+                  <div><span>Recuperación simple</span><strong>{roi.paybackYears > 0 ? `${roi.paybackYears.toFixed(1)} años` : "Sin ahorro estimado"}</strong></div>
+                </div>
+                <div className="result-note"><span aria-hidden="true">ⓘ</span><p>Estimación basada en energía sustituida hasta el consumo mensual del cliente. No incluye financiación, mantenimiento, degradación ni excedentes de energía.</p></div>
+              </> : <p className="field-hint">Completa la tarifa y la inversión total para ver el ROI.</p>}
             </div>
 
             <div className="method-card">
