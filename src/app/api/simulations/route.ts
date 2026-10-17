@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     const workflowStatus = input.submitForReview && reviewer ? "needs_review" : "draft";
 
     let existingProject: { id: string; clientId: string } | null = null;
-    let previous: { version: number; status: string } | null = null;
+    let previous: { id: string; version: number; status: string } | null = null;
     if (input.projectId) {
       existingProject = await getPrisma().project.findUnique({ where: { id: input.projectId }, select: { id: true, clientId: true } });
       if (!existingProject) throw new ResourceNotFoundError();
