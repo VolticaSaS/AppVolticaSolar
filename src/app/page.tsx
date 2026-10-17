@@ -8,5 +8,5 @@ export default async function HomePage() {
   if (user.mustChangePassword) redirect("/change-password");
   if (user.role === "admin") redirect("/admin");
   if (user.role === "reviewer") redirect("/reviewer");
-  return <SolarSizingWorkspace />;
+  return <SolarSizingWorkspace role={user.role} />;
 }
