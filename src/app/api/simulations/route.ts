@@ -30,6 +30,17 @@ const schema = z.object({
   autonomyDays: z.number().positive().max(7),
   energyRateCopKwh: z.number().positive().max(1_000_000).optional(),
   estimatedInvestmentCop: z.number().positive().max(100_000_000_000).optional(),
+  selfConsumptionPercent: z.number().min(0).max(100).optional().default(0),
+  exportRateCopKwh: z.number().min(0).max(1_000_000).optional().default(0),
+  tariffEscalationPercent: z.number().min(0).max(30).default(0),
+  degradationPercent: z.number().min(0).max(5).default(0.5),
+  annualMaintenanceCop: z.number().min(0).max(100_000_000).default(0),
+  analysisYears: z.number().int().min(1).max(40).default(20),
+  discountRatePercent: z.number().min(0).max(50).default(0),
+  municipality: z.string().trim().max(120).default(""),
+  roofOrientation: z.enum(["sur", "norte", "este", "oeste", "mixta"]).default("sur"),
+  roofTiltDegrees: z.number().min(0).max(90).default(10),
+  shadingPercent: z.number().min(0).max(100).default(0),
 }).superRefine((input, context) => {
   const expectedDocument = input.legalType === "natural_person" ? "cedula" : "nit";
   if ((input.energyRateCopKwh === undefined) !== (input.estimatedInvestmentCop === undefined)) {
@@ -102,6 +113,42 @@ export async function POST(request: Request) {
     const monthlyGeneration = pvKwpInstalled * input.peakSunHoursDay * 30 * performanceRatio;
     const batteryUsable = input.systemType === "on_grid" ? null : dailyKwh * input.autonomyDays;
     const batteryNominal = batteryUsable === null ? null : batteryUsable / (0.8 * 0.9);
+    const financialProjection = input.energyRateCopKwh && input.estimatedInvestmentCop && input.selfConsumptionPercent > 0
+      ? (() => {
+          const rows: { year: number; generation_kwh: number; self_consumed_kwh: number; exported_kwh: number; gross_savings_cop: number; maintenance_cop: number; net_savings_cop: number; cumulative_net_cop: number }[] = [];
+          let cumulativeNetCop = -input.estimatedInvestmentCop!;
+          let netPresentValueCop = -input.estimatedInvestmentCop!;
+          let simplePaybackYears: number | null = null;
+          for (let year = 1; year <= input.analysisYears; year += 1) {
+            const generationKwh = monthlyGeneration * 12 * Math.pow(1 - input.degradationPercent / 100, year - 1);
+            const selfConsumedKwh = Math.min(input.energyKwhMonth * 12, generationKwh * input.selfConsumptionPercent / 100);
+            const exportedKwh = Math.max(0, generationKwh - selfConsumedKwh);
+            const retailTariff = input.energyRateCopKwh! * Math.pow(1 + input.tariffEscalationPercent / 100, year - 1);
+            const grossSavingsCop = selfConsumedKwh * retailTariff + exportedKwh * input.exportRateCopKwh;
+            const netSavingsCop = grossSavingsCop - input.annualMaintenanceCop;
+            const previousCumulative = cumulativeNetCop;
+            cumulativeNetCop += netSavingsCop;
+            netPresentValueCop += netSavingsCop / Math.pow(1 + input.discountRatePercent / 100, year);
+            if (simplePaybackYears === null && previousCumulative < 0 && cumulativeNetCop >= 0 && netSavingsCop > 0) {
+              simplePaybackYears = year - 1 + Math.abs(previousCumulative) / netSavingsCop;
+            }
+            rows.push({ year, generation_kwh: generationKwh, self_consumed_kwh: selfConsumedKwh, exported_kwh: exportedKwh, gross_savings_cop: grossSavingsCop, maintenance_cop: input.annualMaintenanceCop, net_savings_cop: netSavingsCop, cumulative_net_cop: cumulativeNetCop });
+          }
+          return {
+            assumptions: {
+              self_consumption_percent: input.selfConsumptionPercent, export_rate_cop_kwh: input.exportRateCopKwh,
+              tariff_escalation_percent: input.tariffEscalationPercent, degradation_percent: input.degradationPercent,
+              annual_maintenance_cop: input.annualMaintenanceCop, analysis_years: input.analysisYears,
+              discount_rate_percent: input.discountRatePercent,
+            },
+            year_1_gross_savings_cop: rows[0]?.gross_savings_cop ?? 0,
+            simple_payback_years: simplePaybackYears,
+            net_present_value_cop: netPresentValueCop,
+            cumulative_net_gain_cop: cumulativeNetCop,
+            cash_flows: rows,
+          };
+        })()
+      : null;
     const now = new Date();
     const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const simulation = await getPrisma().$transaction(async (tx) => {
@@ -165,12 +212,22 @@ export async function POST(request: Request) {
           energy_kwh_month: input.energyKwhMonth, peak_sun_hours_day: input.peakSunHoursDay,
           panel_power_w: input.panelPowerW, losses_percent: input.lossesPercent, autonomy_days: input.autonomyDays,
           energy_rate_cop_kwh: input.energyRateCopKwh ?? null, estimated_investment_cop: input.estimatedInvestmentCop ?? null,
+          self_consumption_percent: input.selfConsumptionPercent, export_rate_cop_kwh: input.exportRateCopKwh,
+          tariff_escalation_percent: input.tariffEscalationPercent, degradation_percent: input.degradationPercent,
+          annual_maintenance_cop: input.annualMaintenanceCop, analysis_years: input.analysisYears,
+          discount_rate_percent: input.discountRatePercent, municipality: input.municipality,
+          roof_orientation: input.roofOrientation, roof_tilt_degrees: input.roofTiltDegrees, shading_percent: input.shadingPercent,
           client: { legal_type: input.legalType, legal_name: input.legalName, tax_id_type: input.taxIdType, tax_id: normalizeIdentification(input.taxId), address: input.clientAddress, contact_name: input.contactName, contact_phone: input.contactPhone },
         },
         calculationMethodVersion: "preliminary-v1", resultPanelCount: panelCount, resultPvKwp: pvKwpInstalled,
         resultGenerationKwhMonth: monthlyGeneration, resultGenerationKwhYear: monthlyGeneration * 12,
         resultBatteryNominalKwh: batteryNominal, resultBatteryUsableKwh: batteryUsable,
-        resultDetails: { pv_kwp_required: pvKwpRequired, performance_ratio: performanceRatio, methodology: "consumo diario / HSP / rendimiento" },
+        resultDetails: {
+          pv_kwp_required: pvKwpRequired, performance_ratio: performanceRatio,
+          methodology: "consumo diario / HSP / rendimiento",
+          site_reference: { municipality: input.municipality, roof_orientation: input.roofOrientation, roof_tilt_degrees: input.roofTiltDegrees, shading_percent: input.shadingPercent },
+          financial_projection: financialProjection,
+        },
         warnings: ["Dimensionamiento preliminar; requiere validación de ingeniería antes de cotizar o instalar."],
         status: workflowStatus,
       };
