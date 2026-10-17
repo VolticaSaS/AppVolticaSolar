@@ -338,3 +338,17 @@ button { cursor: pointer; }
 .report-toolbar > p { flex: 1; text-align: center; }
 .report-back-button:focus-visible, .report-print-button:focus-visible { outline: 3px solid rgba(0, 80, 0, .3); outline-offset: 3px; }
 @media (max-width: 680px) { .report-toolbar > p { text-align: left; } }
+
+
+/* Iconos de acciones de proyectos con ayuda contextual */
+.project-icon-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.project-icon-button { position: relative; display: inline-grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 1px solid #d8e3d8; border-radius: 9px; background: #fff; color: var(--voltica); cursor: pointer; text-decoration: none; }
+.project-icon-button:hover:not(:disabled), .project-icon-button:focus-visible { border-color: var(--voltica); background: #f5f9f5; }
+.project-icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.project-icon-button.danger { color: #a33e34; }
+.project-icon-button:disabled { cursor: not-allowed; opacity: .42; }
+.project-icon-button[data-tooltip]::after { position: absolute; z-index: 20; right: 0; bottom: calc(100% + 9px); width: max-content; max-width: 230px; padding: 7px 9px; border-radius: 6px; background: #26372b; color: #fff; content: attr(data-tooltip); font-size: 11px; font-weight: 500; line-height: 1.4; text-align: center; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease; }
+.project-icon-button:hover::after, .project-icon-button:focus-visible::after { opacity: 1; transform: translateY(0); }
+.project-icon-button:focus-visible { outline: 3px solid rgba(0,80,0,.25); outline-offset: 2px; }
+.observations-field textarea { min-height: 82px; padding: 10px 12px; resize: vertical; }
+@media (max-width: 680px) { .project-icon-actions { justify-content: flex-start; } }
