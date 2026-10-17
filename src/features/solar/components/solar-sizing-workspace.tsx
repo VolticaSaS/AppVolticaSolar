@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { isValidBusinessName, isValidColombianIdentification, isValidPersonName, isValidPhone } from "@/lib/validation/colombian-identification";
 
 type SystemType = "on_grid" | "hybrid" | "off_grid";
-type CalculationSnapshot = { system: SystemType; monthlyUse: number; sunHours: number; panelWatts: number; lossPercent: number; autonomyDays: number; energyRateCopKwh: number; estimatedInvestmentCop: number };
+type CalculationSnapshot = { system: SystemType; monthlyUse: number; sunHours: number; panelWatts: number; lossPercent: number; autonomyDays: number; energyRateCopKwh: number; estimatedInvestmentCop: number; selfConsumptionPercent: number; exportRateCopKwh: number; tariffEscalationPercent: number; degradationPercent: number; annualMaintenanceCop: number; analysisYears: number; discountRatePercent: number; municipality: string; roofOrientation: string; roofTiltDegrees: number; shadingPercent: number };
 type SavedProject = {
   id: string; name: string; status: string; updatedAt: string; address: string | null; systemType: SystemType | null;
   client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
-  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown } } | null;
+  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown; selfConsumptionPercent: unknown; exportRateCopKwh: unknown; tariffEscalationPercent: unknown; degradationPercent: unknown; annualMaintenanceCop: unknown; analysisYears: unknown; discountRatePercent: unknown; municipality: unknown; roofOrientation: unknown; roofTiltDegrees: unknown; shadingPercent: unknown } } | null;
 };
 
 const systemLabels: Record<SystemType, string> = {
@@ -84,7 +84,18 @@ export function SolarSizingWorkspace() {
   const [autonomyDays, setAutonomyDays] = useState(1);
   const [energyRateCopKwh, setEnergyRateCopKwh] = useState(0);
   const [estimatedInvestmentCop, setEstimatedInvestmentCop] = useState(0);
-  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0 });
+  const [selfConsumptionPercent, setSelfConsumptionPercent] = useState(0);
+  const [exportRateCopKwh, setExportRateCopKwh] = useState(0);
+  const [tariffEscalationPercent, setTariffEscalationPercent] = useState(0);
+  const [degradationPercent, setDegradationPercent] = useState(0.5);
+  const [annualMaintenanceCop, setAnnualMaintenanceCop] = useState(0);
+  const [analysisYears, setAnalysisYears] = useState(20);
+  const [discountRatePercent, setDiscountRatePercent] = useState(0);
+  const [municipality, setMunicipality] = useState("");
+  const [roofOrientation, setRoofOrientation] = useState("sur");
+  const [roofTiltDegrees, setRoofTiltDegrees] = useState(10);
+  const [shadingPercent, setShadingPercent] = useState(0);
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
   const [hasCalculated, setHasCalculated] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -128,6 +139,17 @@ export function SolarSizingWorkspace() {
     const inputs = project.latestSimulation?.inputs;
     setEnergyRateCopKwh(Number(inputs?.energyRateCopKwh ?? 0));
     setEstimatedInvestmentCop(Number(inputs?.estimatedInvestmentCop ?? 0));
+    setSelfConsumptionPercent(Number(inputs?.selfConsumptionPercent ?? 0));
+    setExportRateCopKwh(Number(inputs?.exportRateCopKwh ?? 0));
+    setTariffEscalationPercent(Number(inputs?.tariffEscalationPercent ?? 0));
+    setDegradationPercent(Number(inputs?.degradationPercent ?? 0.5));
+    setAnnualMaintenanceCop(Number(inputs?.annualMaintenanceCop ?? 0));
+    setAnalysisYears(Number(inputs?.analysisYears ?? 20));
+    setDiscountRatePercent(Number(inputs?.discountRatePercent ?? 0));
+    setMunicipality(String(inputs?.municipality ?? ""));
+    setRoofOrientation(String(inputs?.roofOrientation ?? "sur"));
+    setRoofTiltDegrees(Number(inputs?.roofTiltDegrees ?? 10));
+    setShadingPercent(Number(inputs?.shadingPercent ?? 0));
     if (inputs) {
       if (inputs.energyKwhMonth != null) setMonthlyUse(Number(inputs.energyKwhMonth));
       if (inputs.peakSunHoursDay != null) setSunHours(Number(inputs.peakSunHoursDay));
@@ -158,10 +180,36 @@ export function SolarSizingWorkspace() {
   const roi = useMemo(() => {
     const monthlyOffsetKwh = Math.min(calculationSnapshot.monthlyUse, result.monthlyProduction);
     const annualSavingsCop = monthlyOffsetKwh * calculationSnapshot.energyRateCopKwh * 12;
+    const hasFinancialProjection = calculationSnapshot.selfConsumptionPercent > 0 && calculationSnapshot.energyRateCopKwh > 0 && calculationSnapshot.estimatedInvestmentCop > 0;
+    const projectionRows: { year: number; generationKwh: number; netSavingsCop: number; cumulativeCop: number }[] = [];
+    let cumulativeCop = -calculationSnapshot.estimatedInvestmentCop;
+    let paybackYears = 0;
+    let npvCop = -calculationSnapshot.estimatedInvestmentCop;
+    for (let year = 1; year <= calculationSnapshot.analysisYears; year += 1) {
+      const generationKwh = result.monthlyProduction * 12 * Math.pow(1 - calculationSnapshot.degradationPercent / 100, year - 1);
+      const selfConsumedKwh = Math.min(calculationSnapshot.monthlyUse * 12, generationKwh * calculationSnapshot.selfConsumptionPercent / 100);
+      const exportedKwh = Math.max(0, generationKwh - selfConsumedKwh);
+      const tariff = calculationSnapshot.energyRateCopKwh * Math.pow(1 + calculationSnapshot.tariffEscalationPercent / 100, year - 1);
+      const netSavingsCop = selfConsumedKwh * tariff + exportedKwh * calculationSnapshot.exportRateCopKwh - calculationSnapshot.annualMaintenanceCop;
+      const priorCumulative = cumulativeCop;
+      cumulativeCop += netSavingsCop;
+      npvCop += netSavingsCop / Math.pow(1 + calculationSnapshot.discountRatePercent / 100, year);
+      if (paybackYears === 0 && priorCumulative < 0 && cumulativeCop >= 0 && netSavingsCop > 0) {
+        paybackYears = year - 1 + (Math.abs(priorCumulative) / netSavingsCop);
+      }
+      projectionRows.push({ year, generationKwh, netSavingsCop, cumulativeCop });
+    }
+    const annualSavingsCop = hasFinancialProjection
+      ? projectionRows[0]?.netSavingsCop ?? 0
+      : monthlyOffsetKwh * calculationSnapshot.energyRateCopKwh * 12;
     return {
       annualSavingsCop,
       roiPercent: calculationSnapshot.estimatedInvestmentCop > 0 ? (annualSavingsCop / calculationSnapshot.estimatedInvestmentCop) * 100 : 0,
-      paybackYears: annualSavingsCop > 0 ? calculationSnapshot.estimatedInvestmentCop / annualSavingsCop : 0,
+      paybackYears: hasFinancialProjection ? paybackYears : annualSavingsCop > 0 ? calculationSnapshot.estimatedInvestmentCop / annualSavingsCop : 0,
+      hasFinancialProjection,
+      npvCop,
+      cumulativeNetGainCop: cumulativeCop,
+      projectionRows,
     };
   }, [calculationSnapshot, result.monthlyProduction]);
 
@@ -179,13 +227,22 @@ export function SolarSizingWorkspace() {
       lossPercent < 0 || lossPercent >= 60 ||
       autonomyDays <= 0 || autonomyDays > 7 ||
       energyRateCopKwh < 0 || energyRateCopKwh > 1_000_000 ||
-      estimatedInvestmentCop < 0 || estimatedInvestmentCop > 100_000_000_000
+      estimatedInvestmentCop < 0 || estimatedInvestmentCop > 100_000_000_000 ||
+      selfConsumptionPercent < 0 || selfConsumptionPercent > 100 ||
+      exportRateCopKwh < 0 || exportRateCopKwh > 1_000_000 ||
+      tariffEscalationPercent < 0 || tariffEscalationPercent > 30 ||
+      degradationPercent < 0 || degradationPercent > 5 ||
+      annualMaintenanceCop < 0 || annualMaintenanceCop > 100_000_000 ||
+      analysisYears < 1 || analysisYears > 40 ||
+      discountRatePercent < 0 || discountRatePercent > 50 ||
+      roofTiltDegrees < 0 || roofTiltDegrees > 90 ||
+      shadingPercent < 0 || shadingPercent > 100
     ) {
       setError("Revisa los datos: consumo, irradiación, panel y pérdidas deben estar dentro de rangos válidos.");
       setHasCalculated(false);
       return;
     }
-    setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays, energyRateCopKwh, estimatedInvestmentCop });
+    setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays, energyRateCopKwh, estimatedInvestmentCop, selfConsumptionPercent, exportRateCopKwh, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent });
     setError("");
     setHasCalculated(true);
   }
@@ -207,7 +264,7 @@ export function SolarSizingWorkspace() {
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress: sameInstallationAddress ? "" : installationAddress, sameInstallationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined, submitForReview: action === "submit" }),
+        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress: sameInstallationAddress ? "" : installationAddress, sameInstallationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined, selfConsumptionPercent: selfConsumptionPercent > 0 ? selfConsumptionPercent : undefined, exportRateCopKwh: exportRateCopKwh > 0 ? exportRateCopKwh : undefined, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent, submitForReview: action === "submit" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
@@ -243,7 +300,18 @@ export function SolarSizingWorkspace() {
     setAutonomyDays(1);
     setEnergyRateCopKwh(0);
     setEstimatedInvestmentCop(0);
-    setCalculationSnapshot({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0 });
+    setSelfConsumptionPercent(0);
+    setExportRateCopKwh(0);
+    setTariffEscalationPercent(0);
+    setDegradationPercent(0.5);
+    setAnnualMaintenanceCop(0);
+    setAnalysisYears(20);
+    setDiscountRatePercent(0);
+    setMunicipality("");
+    setRoofOrientation("sur");
+    setRoofTiltDegrees(10);
+    setShadingPercent(0);
+    setCalculationSnapshot({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
     setError("");
     setSubmitted("");
     setHasCalculated(false);
@@ -407,6 +475,31 @@ export function SolarSizingWorkspace() {
               <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} min={0} max={1000000} step={100} optional onChange={(value) => { setEnergyRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
               <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} min={0} max={100000000000} step={100000} optional onChange={(value) => { setEstimatedInvestmentCop(value); setHasCalculated(false); setSubmitted(""); }} />
             </div>
+            <details className="advanced-assumptions">
+              <summary>Datos adicionales para afinar la propuesta</summary>
+              <p className="field-hint">Estos supuestos amplían el ROI. Los datos del sitio se guardan para revisión técnica; las horas sol pico siguen siendo el dato que alimenta el dimensionamiento.</p>
+              <div className="input-divider" />
+              <div className="form-section-title"><span>Proyección financiera</span><span className="unit-hint">Supuestos editables</span></div>
+              <div className="input-fields">
+                <Field label="Autoconsumo estimado de la generación" unit="%" value={selfConsumptionPercent} min={0} max={100} optional onChange={(value) => { setSelfConsumptionPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Compensación por excedentes" unit="COP/kWh" value={exportRateCopKwh} min={0} max={1000000} step={100} optional onChange={(value) => { setExportRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Aumento anual de tarifa" unit="%" value={tariffEscalationPercent} min={0} max={30} step={0.1} optional onChange={(value) => { setTariffEscalationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Degradación anual de paneles" unit="%" value={degradationPercent} min={0} max={5} step={0.1} optional onChange={(value) => { setDegradationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Mantenimiento anual estimado" unit="COP" value={annualMaintenanceCop} min={0} max={100000000} step={100000} optional onChange={(value) => { setAnnualMaintenanceCop(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Horizonte de análisis" unit="años" value={analysisYears} min={1} max={40} step={1} onChange={(value) => { setAnalysisYears(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Tasa de descuento" unit="%" value={discountRatePercent} min={0} max={50} step={0.1} optional onChange={(value) => { setDiscountRatePercent(value); setHasCalculated(false); setSubmitted(""); }} />
+              </div>
+              <p className="field-hint assumption-defaults-hint">Los campos opcionales vacíos se toman como 0; el horizonte inicial es 20 años. Ajusta estos valores con datos de la tarifa, la oferta y el perfil real del cliente.</p>
+              <div className="input-divider" />
+              <div className="form-section-title"><span>Referencia del sitio</span><span className="unit-hint">Para revisión de ingeniería</span></div>
+              <div className="input-fields">
+                <label className="sizer-field"><span className="sizer-label">Municipio</span><input className="text-input" maxLength={120} placeholder="Ej. Medellín, Antioquia" value={municipality} onChange={(event) => { setMunicipality(event.target.value); setHasCalculated(false); setSubmitted(""); }} /></label>
+                <label className="sizer-field"><span className="sizer-label">Orientación del techo</span><select className="text-input" value={roofOrientation} onChange={(event) => { setRoofOrientation(event.target.value); setHasCalculated(false); setSubmitted(""); }}><option value="sur">Sur</option><option value="norte">Norte</option><option value="este">Este</option><option value="oeste">Oeste</option><option value="mixta">Mixta / por confirmar</option></select></label>
+                <Field label="Inclinación del techo" unit="°" value={roofTiltDegrees} min={0} max={90} step={1} optional onChange={(value) => { setRoofTiltDegrees(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Sombreado estimado del sitio" unit="%" value={shadingPercent} min={0} max={100} step={1} optional onChange={(value) => { setShadingPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+              </div>
+              <p className="field-hint assumption-defaults-hint">La orientación, inclinación y sombra quedan como referencia; no sustituyen una visita ni cambian automáticamente las horas sol pico.</p>
+            </details>
 
             {system !== "on_grid" && <div className="battery-input">
               <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={(value) => { setAutonomyDays(value); setHasCalculated(false); setSubmitted(""); }} />
@@ -444,12 +537,19 @@ export function SolarSizingWorkspace() {
               <div className="form-section-title"><span>ROI simple preliminar</span><span className="unit-hint">Sin financiación ni O&amp;M</span></div>
               {calculationSnapshot.energyRateCopKwh > 0 && calculationSnapshot.estimatedInvestmentCop > 0 ? <>
                 <div className="result-metrics">
-                  <div><span>Ahorro anual estimado</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.annualSavingsCop)}</strong></div>
-                  <div><span>Retorno anual estimado</span><strong>{roi.roiPercent.toFixed(1)}%</strong></div>
-                  <div><span>Recuperación simple</span><strong>{roi.paybackYears > 0 ? `${roi.paybackYears.toFixed(1)} años` : "Sin ahorro estimado"}</strong></div>
+                  <div><span>Ahorro neto año 1</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.annualSavingsCop)}</strong></div>
+                  <div><span>Retorno anual simple</span><strong>{roi.roiPercent.toFixed(1)}%</strong></div>
+                  <div><span>Recuperación estimada</span><strong>{roi.paybackYears > 0 ? `${roi.paybackYears.toFixed(1)} años` : "No se recupera en el horizonte"}</strong></div>
                 </div>
-                <div className="result-note"><span aria-hidden="true">ⓘ</span><p>Estimación basada en energía sustituida hasta el consumo mensual del cliente. No incluye financiación, mantenimiento, degradación ni excedentes de energía.</p></div>
-              </> : <p className="field-hint">Completa la tarifa y la inversión total para ver el ROI.</p>}
+                {roi.hasFinancialProjection && <>
+                  <div className="result-metrics projection-highlights">
+                    <div><span>Valor presente neto</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.npvCop)}</strong></div>
+                    <div><span>Ganancia neta acumulada ({calculationSnapshot.analysisYears} años)</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.cumulativeNetGainCop)}</strong></div>
+                  </div>
+                  <details className="projection-table-details"><summary>Ver flujo anual proyectado</summary><div className="projection-table-wrap"><table><thead><tr><th>Año</th><th>Generación</th><th>Ahorro neto</th><th>Acumulado</th></tr></thead><tbody>{roi.projectionRows.map((row) => <tr key={row.year}><td>{row.year}</td><td>{Math.round(row.generationKwh).toLocaleString("es-CO")} kWh</td><td>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(row.netSavingsCop)}</td><td>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(row.cumulativeCop)}</td></tr>)}</tbody></table></div></details>
+                </>}
+                <div className="result-note"><span aria-hidden="true">ⓘ</span><p>{roi.hasFinancialProjection ? `Proyección preliminar con ${calculationSnapshot.selfConsumptionPercent}% de autoconsumo, tarifa creciendo ${calculationSnapshot.tariffEscalationPercent}% anual, degradación ${calculationSnapshot.degradationPercent}% y O&M indicado. No incluye financiación ni impuestos.` : "ROI simple: asume que la generación desplaza consumo hasta el consumo mensual ingresado. Abre los datos adicionales e indica autoconsumo para estimar excedentes y flujo de caja."}</p></div>
+              </> : <p className="field-hint">Completa tarifa e inversión total. Para proyección avanzada, indica también el autoconsumo estimado.</p>}
             </div>
 
             <div className="method-card">
