@@ -231,7 +231,7 @@ button { cursor: pointer; }
 
 .same-address-toggle { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 0; color: #445449; font-size: 13px; font-weight: 600; line-height: 1.5; cursor: pointer; }
 .same-address-toggle input { flex: 0 0 auto; width: 17px; height: 17px; margin: 1px 0 0; accent-color: #005000; }
-.address-purpose-hint { margin-top: -7px; }
+.address-purpose-hint { margin: 4px 0 0 27px; line-height: 1.5; }
 .form-action-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 10px; }
 .form-action-row .calculate-button { margin-top: 0; }
 .form-action-row .calculate-button:first-child { border: 1px solid #005000; background: #fff; color: #005000; }
@@ -240,3 +240,5 @@ button { cursor: pointer; }
 @media (max-width: 680px) {
   .form-action-row { grid-template-columns: 1fr; }
 }
+
+.draft-before-submit-hint { margin-top: 8px; }
