@@ -6,7 +6,7 @@ import { isValidBusinessName, isValidColombianIdentification, isValidPersonName,
 type SystemType = "on_grid" | "hybrid" | "off_grid";
 type CalculationSnapshot = { system: SystemType; monthlyUse: number; sunHours: number; panelWatts: number; lossPercent: number; autonomyDays: number; energyRateCopKwh: number; estimatedInvestmentCop: number };
 type SavedProject = {
-  id: string; name: string; status: string; address: string | null; systemType: SystemType | null;
+  id: string; name: string; status: string; updatedAt: string; address: string | null; systemType: SystemType | null;
   client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
   latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown } } | null;
 };
@@ -57,6 +57,7 @@ function Field({
 }
 
 export function SolarSizingWorkspace() {
+  const [activeSection, setActiveSection] = useState<"sizing" | "projects">("sizing");
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -231,15 +232,15 @@ export function SolarSizingWorkspace() {
     <div className="workbench">
       <aside className="workbench-sidebar" aria-label="Navegación del sistema">
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
-        <a className="workspace-nav-item active" href="#dimensionador" aria-current="page">
+        <button type="button" className={`workspace-nav-item ${activeSection === "sizing" ? "active" : ""}`} onClick={() => setActiveSection("sizing")} aria-current={activeSection === "sizing" ? "page" : undefined}>
           <span className="nav-glyph" aria-hidden="true">⌁</span>
           <span>Dimensionador</span>
-        </a>
-        <div className="workspace-nav-item disabled" aria-disabled="true" title="Disponible próximamente">
+        </button>
+        <button type="button" className={`workspace-nav-item ${activeSection === "projects" ? "active" : ""}`} onClick={() => setActiveSection("projects")} aria-current={activeSection === "projects" ? "page" : undefined}>
           <span className="nav-glyph" aria-hidden="true">▤</span>
-          <span>Proyectos</span>
-          <span className="nav-soon">Próximo</span>
-        </div>
+          <span>Mis proyectos</span>
+          <span className="project-nav-count">{projects.length}</span>
+        </button>
         <div className="workspace-nav-item disabled" aria-disabled="true" title="Disponible próximamente">
           <span className="nav-glyph" aria-hidden="true">▦</span>
           <span>Equipos</span>
@@ -252,6 +253,25 @@ export function SolarSizingWorkspace() {
       </aside>
 
       <main className="sizer-main" id="dimensionador">
+        {activeSection === "projects" && <section className="projects-page" aria-labelledby="projects-page-title">
+          <div className="sizer-page-heading">
+            <div><div className="breadcrumbs"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>Mis proyectos</strong></div><p className="sizer-kicker">SEGUIMIENTO</p><h1 id="projects-page-title">Mis proyectos</h1><p className="sizer-intro">Consulta tus cálculos, revisa su estado y continúa trabajando cuando estén disponibles.</p></div>
+            <button type="button" className="button-reset" onClick={() => { reset(); setActiveSection("sizing"); }}>＋ <span>Nuevo cálculo</span></button>
+          </div>
+          {projects.length === 0 ? <div className="sizer-card projects-empty"><span className="empty-project-icon" aria-hidden="true">▤</span><h2>Aún no tienes proyectos</h2><p>Cuando guardes un cálculo, aparecerá aquí para que puedas consultarlo y continuar.</p><button type="button" className="calculate-button" onClick={() => { reset(); setActiveSection("sizing"); }}>Crear primer cálculo</button></div> : <div className="projects-list" aria-label="Lista de proyectos">
+            {projects.map((project) => {
+              const simulation = project.latestSimulation;
+              const statusLabel: Record<string, string> = { draft: "Borrador", in_review: "En revisión", needs_review: "En revisión", approved: "Aprobado", rejected: "Requiere ajustes", archived: "Archivado" };
+              const status = simulation?.status ?? project.status;
+              const canContinue = status !== "in_review" && status !== "needs_review";
+              return <article className="project-list-card" key={project.id}>
+                <div className="project-list-main"><div className="project-list-title"><h2>{project.name}</h2><span className={`project-status-chip ${status === "approved" ? "approved" : status === "rejected" ? "attention" : status === "in_review" || status === "needs_review" ? "review" : ""}`}>{statusLabel[status] ?? status.replaceAll("_", " ")}</span></div><p>{project.client.legalName}{project.systemType ? ` · ${systemLabels[project.systemType]}` : ""}</p><div className="project-list-meta"><span>{simulation ? `Versión ${simulation.version}` : "Sin cálculo guardado"}</span><span>Actualizado {new Date(project.updatedAt).toLocaleDateString("es-CO")}</span>{simulation?.panelCount ? <span>{simulation.panelCount} paneles · {Number(simulation.pvKwp ?? 0).toFixed(2)} kWp</span> : null}</div>{status === "rejected" && simulation?.reviewNotes && <p className="project-review-notes"><strong>Observación técnica:</strong> {simulation.reviewNotes}</p>}</div>
+                <div className="project-list-actions"><button type="button" className="button-reset project-open-button" onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}>{canContinue ? "Abrir proyecto" : "Ver proyecto"}</button>{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
+              </article>;
+            })}
+          </div>}
+        </section>}
+        <div className="sizer-content" style={{ display: activeSection === "sizing" ? "contents" : "none" }}>
         <div className="sizer-page-heading">
           <div>
             <div className="breadcrumbs"><span>Herramientas</span><span aria-hidden="true">/</span><strong>Dimensionador solar</strong></div>
@@ -414,6 +434,7 @@ export function SolarSizingWorkspace() {
               <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
             </div>
           </section>
+        </div>
         </div>
 
         <footer className="sizer-footer"><span>Voltica Solar · Herramienta de dimensionamiento</span><span>Versión preliminar · Validar ingeniería antes de instalar</span></footer>
