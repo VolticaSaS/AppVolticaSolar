@@ -37,6 +37,7 @@ export async function GET(_request: Request, context: { params: Promise<{ simula
       desiredCoverageFraction: technicalFields.desiredCoverageFraction?.toString() ?? null,
       systemLossFraction: technicalFields.systemLossFraction?.toString() ?? null,
       designInputs: {
+        observations: rawInputs.internal_observations,
         energy_kwh_month: rawInputs.energy_kwh_month,
         peak_sun_hours_day: rawInputs.peak_sun_hours_day,
         panel_power_w: rawInputs.panel_power_w,
