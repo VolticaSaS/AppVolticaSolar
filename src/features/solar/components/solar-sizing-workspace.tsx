@@ -88,6 +88,7 @@ export function SolarSizingWorkspace() {
   const [hasCalculated, setHasCalculated] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [submitted, setSubmitted] = useState("");
 
   async function loadProjects() {
@@ -111,6 +112,7 @@ export function SolarSizingWorkspace() {
   function selectProject(nextId: string) {
     setProjectId(nextId);
     const project = projects.find((item) => item.id === nextId);
+    setHasSavedDraft(project?.latestSimulation?.status === "draft");
     if (!project) return;
     setProjectName(project.name);
     setLegalType(project.client.legalType ?? "natural_person");
@@ -210,6 +212,7 @@ export function SolarSizingWorkspace() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
       setProjectId(data.simulation.projectId);
+      setHasSavedDraft(data.simulation.status === "draft");
       setSubmitted(data.simulation.status === "needs_review"
         ? `Versión ${data.simulation.version} enviada a revisión técnica. El contenido quedó bloqueado.`
         : action === "draft"
@@ -223,6 +226,7 @@ export function SolarSizingWorkspace() {
   function reset() {
     setProjectName("");
     setProjectId("");
+    setHasSavedDraft(false);
     setLegalType("natural_person");
     setLegalName("");
     setTaxId("");
@@ -412,7 +416,8 @@ export function SolarSizingWorkspace() {
             {error && <p className="form-error" role="alert">{error}</p>}
             {!hasCalculated && <p className="form-hint-box" role="status">Los datos cambiaron. Pulsa «Calcular dimensionamiento» para actualizar resultados antes de guardar.</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
-            <div className="form-action-row"><button className="calculate-button" type="button" onClick={() => void submitForReview("draft")} disabled={saving || !hasCalculated}>{saving ? "Guardando…" : "Guardar borrador"}</button><button className="calculate-button submit-review-button" type="button" onClick={() => void submitForReview("submit")} disabled={saving || !hasCalculated}>{saving ? "Enviando…" : "Enviar versión a revisión técnica"}</button></div>
+            <div className="form-action-row"><button className="calculate-button" type="button" onClick={() => void submitForReview("draft")} disabled={saving || !hasCalculated}>{saving ? "Guardando…" : "Guardar borrador"}</button><button className="calculate-button submit-review-button" type="button" onClick={() => void submitForReview("submit")} disabled={saving || !hasCalculated || !projectId || !hasSavedDraft} title={!projectId || !hasSavedDraft ? "Guarda primero una versión como borrador." : undefined}>{saving ? "Enviando…" : "Enviar versión a revisión técnica"}</button></div>
+            {!projectId || !hasSavedDraft ? <p className="field-hint draft-before-submit-hint">Primero guarda una versión como borrador. Después podrás enviarla a revisión.</p> : null}
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
           </fieldset>
