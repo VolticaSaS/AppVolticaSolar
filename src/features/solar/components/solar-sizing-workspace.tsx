@@ -47,8 +47,15 @@ function Field({
           min={min}
           max={max}
           step={step}
-          value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          value={optional && value === 0 ? "" : value}
+          onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
+          onBlur={(event) => {
+            const normalizedValue = Number(event.currentTarget.value);
+            if (Number.isFinite(normalizedValue)) {
+              event.currentTarget.value = optional && normalizedValue === 0 ? "" : String(normalizedValue);
+              onChange(normalizedValue);
+            }
+          }}
         />
         <span className="sizer-unit">{unit}</span>
       </span>
@@ -68,6 +75,7 @@ export function SolarSizingWorkspace() {
   const [clientAddress, setClientAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [installationAddress, setInstallationAddress] = useState("");
+  const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
   const [system, setSystem] = useState<SystemType>("on_grid");
   const [monthlyUse, setMonthlyUse] = useState(650);
   const [sunHours, setSunHours] = useState(4.5);
@@ -111,7 +119,9 @@ export function SolarSizingWorkspace() {
     setContactName(project.client.contactName ?? "");
     setClientAddress(project.client.address ?? "");
     setContactPhone(project.client.contactPhone ?? "");
-    setInstallationAddress(project.address ?? "");
+    const installationMatchesClient = !project.address || project.address === project.client.address;
+    setSameInstallationAddress(installationMatchesClient);
+    setInstallationAddress(installationMatchesClient ? "" : project.address ?? "");
     if (project.systemType) setSystem(project.systemType);
     const inputs = project.latestSimulation?.inputs;
     setEnergyRateCopKwh(Number(inputs?.energyRateCopKwh ?? 0));
@@ -178,7 +188,7 @@ export function SolarSizingWorkspace() {
     setHasCalculated(true);
   }
 
-  async function submitForReview() {
+  async function submitForReview(action: "draft" | "submit") {
     if (!projectName.trim()) { setError("Escribe el nombre del proyecto antes de enviarlo a revisión."); return; }
     if (legalType === "natural_person" && !isValidPersonName(legalName)) { setError("El nombre debe usar solo letras, espacios, apóstrofes o guiones."); return; }
     if (legalType === "legal_entity" && !isValidBusinessName(legalName)) { setError("Escribe una razón social válida."); return; }
@@ -188,20 +198,23 @@ export function SolarSizingWorkspace() {
     }
     if (legalType === "legal_entity" && !isValidPersonName(contactName)) { setError("El contacto responsable debe tener un nombre válido, usando solo letras."); return; }
     if (clientAddress.trim().length < 5) { setError("Escribe la dirección del cliente."); return; }
+    if (!sameInstallationAddress && installationAddress.trim().length < 5) { setError("Escribe la dirección de instalación o marca que es la misma del cliente."); return; }
     if (!isValidPhone(contactPhone)) { setError("Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos."); return; }
     if (!hasCalculated) { setError("Los datos cambiaron. Pulsa Calcular dimensionamiento antes de guardar."); return; }
     setSaving(true); setError(""); setSubmitted("");
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined }),
+        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress: sameInstallationAddress ? "" : installationAddress, sameInstallationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined, submitForReview: action === "submit" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
       setProjectId(data.simulation.projectId);
       setSubmitted(data.simulation.status === "needs_review"
-        ? `Versión ${data.simulation.version} guardada y enviada a revisión técnica.`
-        : `Versión ${data.simulation.version} guardada como borrador. Administración deberá asignar un revisor para continuar.`);
+        ? `Versión ${data.simulation.version} enviada a revisión técnica. El contenido quedó bloqueado.`
+        : action === "draft"
+          ? `Borrador ${data.simulation.version} guardado. Puedes retomarlo y editarlo desde Mis proyectos.`
+          : "Borrador guardado, pero no se envió porque todavía no hay un revisor asignado.");
       void loadProjects().catch(() => undefined);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo enviar el cálculo."); }
     finally { setSaving(false); }
@@ -217,6 +230,7 @@ export function SolarSizingWorkspace() {
     setClientAddress("");
     setContactPhone("");
     setInstallationAddress("");
+    setSameInstallationAddress(true);
     setSystem("on_grid");
     setMonthlyUse(650);
     setSunHours(4.5);
@@ -344,10 +358,12 @@ export function SolarSizingWorkspace() {
                 <input className="text-input" required maxLength={500} autoComplete="street-address" placeholder="Dirección de contacto" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
               </label>
             </div>
-            <label className="sizer-field project-name-field">
-              <span className="sizer-label">Dirección de instalación <span className="unit-hint">(si es distinta)</span></span>
-              <input className="text-input" placeholder="Lugar donde se instalaría el sistema" value={installationAddress} onChange={(event) => setInstallationAddress(event.target.value)} />
-            </label>
+            <label className="same-address-toggle"><input type="checkbox" checked={sameInstallationAddress} onChange={(event) => { setSameInstallationAddress(event.target.checked); if (event.target.checked) setInstallationAddress(""); }} /><span>La instalación será en la dirección del cliente</span></label>
+            {!sameInstallationAddress && <label className="sizer-field project-name-field">
+              <span className="sizer-label">Dirección de instalación</span>
+              <input className="text-input" required maxLength={500} placeholder="Dirección donde se instalará el sistema" value={installationAddress} onChange={(event) => setInstallationAddress(event.target.value)} />
+            </label>}
+            <p className="field-hint address-purpose-hint">La dirección del cliente sirve para contacto. Indica otra dirección solo si el sistema se instalará en un lugar distinto.</p>
 
           </section>
           <section className="sizer-card input-card" aria-labelledby="technical-input-title">
@@ -396,7 +412,7 @@ export function SolarSizingWorkspace() {
             {error && <p className="form-error" role="alert">{error}</p>}
             {!hasCalculated && <p className="form-hint-box" role="status">Los datos cambiaron. Pulsa «Calcular dimensionamiento» para actualizar resultados antes de guardar.</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
-            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving || !hasCalculated || projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review"} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : projectId ? "Guardar nueva versión y enviar a revisión" : "Guardar y enviar a revisión técnica"}</button>
+            <div className="form-action-row"><button className="calculate-button" type="button" onClick={() => void submitForReview("draft")} disabled={saving || !hasCalculated}>{saving ? "Guardando…" : "Guardar borrador"}</button><button className="calculate-button submit-review-button" type="button" onClick={() => void submitForReview("submit")} disabled={saving || !hasCalculated}>{saving ? "Enviando…" : "Enviar versión a revisión técnica"}</button></div>
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
           </fieldset>
