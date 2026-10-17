@@ -10,6 +10,7 @@ export async function GET() {
     const user = await requireApiRole(["operator", "engineer"]);
     const projects = await getPrisma().project.findMany({
       where: {
+        status: { not: "archived" },
         OR: [
           { ownerId: user.id },
           { memberships: { some: { userId: user.id, accessRole: user.role } } },
@@ -52,6 +53,7 @@ export async function GET() {
           roofOrientation: (project.simulations[0].designInputs as Record<string, unknown>).roof_orientation ?? null,
           roofTiltDegrees: (project.simulations[0].designInputs as Record<string, unknown>).roof_tilt_degrees ?? null,
           shadingPercent: (project.simulations[0].designInputs as Record<string, unknown>).shading_percent ?? null,
+          observations: (project.simulations[0].designInputs as Record<string, unknown>).internal_observations ?? null,
         },
       } : null,
     })) });
