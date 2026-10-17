@@ -169,3 +169,52 @@ button { cursor: pointer; }
   .method-card { padding: 13px 14px; }
   .sizer-footer { flex-direction: column; gap: 6px; font-size: 8px; }
 }
+
+
+/* Mis proyectos: navegación y lista de trabajo del operario */
+.workspace-nav-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.workspace-nav-item:hover { background: #f5f8f5; color: var(--voltica); }
+.project-nav-count {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: #edf4ed;
+  color: var(--voltica);
+  font-size: 10px;
+}
+.projects-page { max-width: 1100px; margin: 0 auto; }
+.projects-empty { display: grid; justify-items: center; padding: 64px 24px; text-align: center; }
+.empty-project-icon { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 16px; background: #edf4ed; color: var(--voltica); font-size: 25px; }
+.projects-empty h2 { margin: 18px 0 5px; color: #25352a; font-size: 20px; }
+.projects-empty p { max-width: 420px; margin: 0 0 20px; color: #78857a; line-height: 1.6; }
+.projects-empty .calculate-button { width: auto; min-width: 230px; padding: 0 24px; }
+.projects-list { display: grid; gap: 14px; }
+.project-list-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 24px; border: 1px solid #e1e9e1; border-radius: 14px; background: #fff; box-shadow: 0 3px 14px rgba(17, 52, 25, .035); }
+.project-list-main { min-width: 0; }
+.project-list-title { display: flex; align-items: center; flex-wrap: wrap; gap: 11px; }
+.project-list-title h2 { margin: 0; color: #26372b; font-size: 17px; }
+.project-list-main > p { margin: 7px 0 0; color: #657267; font-size: 13px; }
+.project-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 9px; border-radius: 999px; background: #f0f3f0; color: #59665a; font-size: 11px; font-weight: 700; }
+.project-status-chip.review { background: #fff5df; color: #8a5c00; }
+.project-status-chip.approved { background: #eaf5e9; color: #005000; }
+.project-status-chip.attention { background: #fff0ed; color: #a03a25; }
+.project-list-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; color: #89948a; font-size: 11px; }
+.project-review-notes { padding: 9px 11px; border-left: 3px solid #b85a37; border-radius: 4px; background: #fff8f5; color: #77402e !important; }
+.project-list-actions { display: grid; flex: 0 0 auto; justify-items: end; gap: 6px; }
+.project-open-button { min-width: 132px; justify-content: center; border: 1px solid #cfdccf; color: var(--voltica); }
+.project-open-button:hover { border-color: var(--voltica); background: #f5f9f5; }
+@media (max-width: 680px) {
+  .project-list-card { align-items: stretch; flex-direction: column; gap: 17px; padding: 18px; }
+  .project-list-actions { justify-items: stretch; }
+  .project-open-button { width: 100%; }
+}
