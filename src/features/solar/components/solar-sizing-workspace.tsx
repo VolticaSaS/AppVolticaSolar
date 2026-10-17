@@ -140,6 +140,9 @@ export function SolarSizingWorkspace() {
     return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
   }, [calculationSnapshot]);
 
+  const selectedProject = projects.find((project) => project.id === projectId);
+  const isReviewLocked = selectedProject?.latestSimulation?.status === "needs_review" || selectedProject?.latestSimulation?.status === "in_review";
+
   const roi = useMemo(() => {
     const monthlyOffsetKwh = Math.min(calculationSnapshot.monthlyUse, result.monthlyProduction);
     const annualSavingsCop = monthlyOffsetKwh * calculationSnapshot.energyRateCopKwh * 12;
@@ -282,8 +285,9 @@ export function SolarSizingWorkspace() {
           <button className="button-reset" type="button" onClick={reset}>＋ <span>Nuevo cálculo</span></button>
         </div>
 
+        {isReviewLocked && <div className="review-lock-banner" role="status"><strong>Versión enviada a revisión</strong><span>Este cálculo está bloqueado para conservar lo enviado. Podrás preparar cambios cuando el revisor responda.</span></div>}
         <div className="sizer-grid">
-          <div className="input-stack">
+          <fieldset disabled={isReviewLocked} className="input-stack sizer-form-lock">
           <section className="sizer-card input-card" aria-labelledby="project-input-title">
             <div className="card-heading">
               <div className="step-badge">01</div>
@@ -395,7 +399,7 @@ export function SolarSizingWorkspace() {
             <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving || !hasCalculated || projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review"} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : projectId ? "Guardar nueva versión y enviar a revisión" : "Guardar y enviar a revisión técnica"}</button>
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
-          </div>
+          </fieldset>
 
           <section className="results-column" aria-labelledby="result-title">
             <div className="result-card">
