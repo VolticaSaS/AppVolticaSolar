@@ -212,12 +212,12 @@ export function SolarSizingWorkspace() {
     };
   }, [calculationSnapshot, result.monthlyProduction]);
 
-  function calculate() {
+  function calculate(): boolean {
     setSubmitted("");
     if ((energyRateCopKwh > 0) !== (estimatedInvestmentCop > 0)) {
       setError("Para calcular el ROI, completa tanto la tarifa de energía como la inversión estimada.");
       setHasCalculated(false);
-      return;
+      return false;
     }
     if (
       monthlyUse <= 0 || monthlyUse > 100_000 ||
@@ -239,11 +239,12 @@ export function SolarSizingWorkspace() {
     ) {
       setError("Revisa los datos: consumo, irradiación, panel y pérdidas deben estar dentro de rangos válidos.");
       setHasCalculated(false);
-      return;
+      return false;
     }
     setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays, energyRateCopKwh, estimatedInvestmentCop, selfConsumptionPercent, exportRateCopKwh, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent });
     setError("");
     setHasCalculated(true);
+    return true;
   }
 
   async function submitForReview(action: "draft" | "submit") {
@@ -258,7 +259,7 @@ export function SolarSizingWorkspace() {
     if (clientAddress.trim().length < 5) { setError("Escribe la dirección del cliente."); return; }
     if (!sameInstallationAddress && installationAddress.trim().length < 5) { setError("Escribe la dirección de instalación o marca que es la misma del cliente."); return; }
     if (!isValidPhone(contactPhone)) { setError("Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos."); return; }
-    if (!hasCalculated) { setError("Los datos cambiaron. Pulsa Calcular dimensionamiento antes de guardar."); return; }
+    if (!hasCalculated && !calculate()) return;
     setSaving(true); setError(""); setSubmitted("");
     try {
       const response = await fetch("/api/simulations", {
@@ -506,9 +507,9 @@ export function SolarSizingWorkspace() {
             </div>}
 
             {error && <p className="form-error" role="alert">{error}</p>}
-            {!hasCalculated && <p className="form-hint-box" role="status">Los datos cambiaron. Pulsa «Calcular dimensionamiento» para actualizar resultados antes de guardar.</p>}
+            {!hasCalculated && <p className="form-hint-box" role="status">Hay cambios sin recalcular. Al guardar o enviar, se actualizará el cálculo con estos datos.</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
-            <div className="form-action-row"><button className="calculate-button" type="button" onClick={() => void submitForReview("draft")} disabled={saving || !hasCalculated}>{saving ? "Guardando…" : "Guardar borrador"}</button><button className="calculate-button submit-review-button" type="button" onClick={() => void submitForReview("submit")} disabled={saving || !hasCalculated || !projectId || !hasSavedDraft} title={!projectId || !hasSavedDraft ? "Guarda primero una versión como borrador." : undefined}>{saving ? "Enviando…" : "Enviar versión a revisión técnica"}</button></div>
+            <div className="form-action-row"><button className="calculate-button" type="button" onClick={() => void submitForReview("draft")} disabled={saving}>{saving ? "Guardando…" : "Guardar borrador"}</button><button className="calculate-button submit-review-button" type="button" onClick={() => void submitForReview("submit")} disabled={saving || !projectId || !hasSavedDraft} title={!projectId || !hasSavedDraft ? "Guarda primero una versión como borrador." : undefined}>{saving ? "Enviando…" : "Enviar versión a revisión técnica"}</button></div>
             {!projectId || !hasSavedDraft ? <p className="field-hint draft-before-submit-hint">Primero guarda una versión como borrador. Después podrás enviarla a revisión.</p> : null}
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
