@@ -128,6 +128,10 @@ export default async function ClientReportPage({ params }: { params: Promise<{ p
   return (
     <main className="client-report-page">
       <div className="report-toolbar">
+        <a className="report-back-button" href="/?section=projects" aria-label="Volver a Mis proyectos">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h12" /></svg>
+          <span>Volver a Mis proyectos</span>
+        </a>
         <p>Ficha para compartir con el cliente</p>
         <PrintReportButton />
       </div>
