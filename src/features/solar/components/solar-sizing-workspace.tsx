@@ -110,6 +110,9 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
 
   useEffect(() => {
     let active = true;
+    if (new URLSearchParams(window.location.search).get("section") === "projects") {
+      setActiveSection("projects");
+    }
     fetch("/api/operator/projects", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("No se pudieron cargar tus proyectos.");
