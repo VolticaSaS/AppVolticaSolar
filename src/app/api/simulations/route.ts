@@ -5,7 +5,7 @@ import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { writeAuditEvent } from "@/lib/audit";
 import type { Prisma } from "@/generated/prisma/client";
-import { isValidColombianIdentification, isValidPhone, normalizeIdentification } from "@/lib/validation/colombian-identification";
+import { isValidBusinessName, isValidColombianIdentification, isValidPersonName, isValidPhone, normalizeIdentification } from "@/lib/validation/colombian-identification";
 import { nextSimulationVersion } from "@/lib/simulations/lifecycle";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +36,14 @@ const schema = z.object({
   if (input.taxIdType !== expectedDocument) {
     context.addIssue({ code: "custom", path: ["taxIdType"], message: "El tipo de documento no corresponde al tipo de persona." });
   }
-  if (input.legalType === "legal_entity" && input.contactName.trim().length < 3) {
-    context.addIssue({ code: "custom", path: ["contactName"], message: "Indica quién es el contacto responsable de la empresa." });
+  if (input.legalType === "natural_person" && !isValidPersonName(input.legalName)) {
+    context.addIssue({ code: "custom", path: ["legalName"], message: "El nombre debe contener solo letras, espacios, apóstrofes o guiones." });
+  }
+  if (input.legalType === "legal_entity" && !isValidBusinessName(input.legalName)) {
+    context.addIssue({ code: "custom", path: ["legalName"], message: "Escribe una razón social válida." });
+  }
+  if (input.legalType === "legal_entity" && !isValidPersonName(input.contactName)) {
+    context.addIssue({ code: "custom", path: ["contactName"], message: "Escribe el nombre de la persona de contacto usando solo letras." });
   }
   if (!isValidColombianIdentification(input.taxId, input.legalType)) {
     context.addIssue({ code: "custom", path: ["taxId"], message: "La cédula debe tener de 6 a 10 dígitos. El NIT debe tener 9 dígitos y un dígito de verificación válido." });
