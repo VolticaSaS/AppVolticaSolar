@@ -8,7 +8,7 @@ type CalculationSnapshot = { system: SystemType; monthlyUse: number; sunHours: n
 type SavedProject = {
   id: string; name: string; status: string; updatedAt: string; address: string | null; systemType: SystemType | null;
   client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
-  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown; selfConsumptionPercent: unknown; exportRateCopKwh: unknown; tariffEscalationPercent: unknown; degradationPercent: unknown; annualMaintenanceCop: unknown; analysisYears: unknown; discountRatePercent: unknown; municipality: unknown; roofOrientation: unknown; roofTiltDegrees: unknown; shadingPercent: unknown } } | null;
+  latestSimulation: { id: string; version: number; status: string; reviewNotes: string | null; panelCount: number | null; pvKwp: string | null; inputs: { energyKwhMonth: unknown; peakSunHoursDay: unknown; panelPowerW: unknown; lossesPercent: unknown; autonomyDays: unknown; energyRateCopKwh: unknown; estimatedInvestmentCop: unknown; selfConsumptionPercent: unknown; exportRateCopKwh: unknown; tariffEscalationPercent: unknown; degradationPercent: unknown; annualMaintenanceCop: unknown; analysisYears: unknown; discountRatePercent: unknown; municipality: unknown; roofOrientation: unknown; roofTiltDegrees: unknown; shadingPercent: unknown; observations: unknown } } | null;
 };
 
 const systemLabels: Record<SystemType, string> = {
@@ -73,6 +73,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [taxId, setTaxId] = useState("");
   const [contactName, setContactName] = useState("");
   const [clientAddress, setClientAddress] = useState("");
+  const [observations, setObservations] = useState("");
+  const [projectActionMessage, setProjectActionMessage] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [installationAddress, setInstallationAddress] = useState("");
   const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
@@ -134,6 +136,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setTaxId(project.client.taxId ?? "");
     setContactName(project.client.contactName ?? "");
     setClientAddress(project.client.address ?? "");
+    setObservations(String(project.latestSimulation?.inputs.observations ?? ""));
     setContactPhone(project.client.contactPhone ?? "");
     const installationMatchesClient = !project.address || project.address === project.client.address;
     setSameInstallationAddress(installationMatchesClient);
@@ -267,7 +270,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     try {
       const response = await fetch("/api/simulations", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, installationAddress: sameInstallationAddress ? "" : installationAddress, sameInstallationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined, selfConsumptionPercent: selfConsumptionPercent > 0 ? selfConsumptionPercent : undefined, exportRateCopKwh: exportRateCopKwh > 0 ? exportRateCopKwh : undefined, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent, submitForReview: action === "submit" }),
+        body: JSON.stringify({ projectId: projectId || undefined, projectName, legalType, legalName, taxIdType: legalType === "natural_person" ? "cedula" : "nit", taxId, contactName, clientAddress, contactPhone, observations, installationAddress: sameInstallationAddress ? "" : installationAddress, sameInstallationAddress, systemType: system, energyKwhMonth: monthlyUse, peakSunHoursDay: sunHours, panelPowerW: panelWatts, lossesPercent: lossPercent, autonomyDays, energyRateCopKwh: energyRateCopKwh > 0 ? energyRateCopKwh : undefined, estimatedInvestmentCop: estimatedInvestmentCop > 0 ? estimatedInvestmentCop : undefined, selfConsumptionPercent: selfConsumptionPercent > 0 ? selfConsumptionPercent : undefined, exportRateCopKwh: exportRateCopKwh > 0 ? exportRateCopKwh : undefined, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent, submitForReview: action === "submit" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "No se pudo enviar el cálculo.");
@@ -283,6 +286,21 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     finally { setSaving(false); }
   }
 
+  async function archiveDraft(id: string, name: string) {
+    if (!window.confirm(`¿Eliminar el borrador “${name}”? Se ocultará de Mis proyectos y su historial se conservará.`)) return;
+    setProjectActionMessage("");
+    try {
+      const response = await fetch(`/api/operator/projects/${id}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "No se pudo eliminar el borrador.");
+      setProjects((items) => items.filter((item) => item.id !== id));
+      if (projectId === id) reset();
+      setProjectActionMessage("Borrador eliminado de Mis proyectos.");
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : "No se pudo eliminar el borrador.");
+    }
+  }
+
   function reset() {
     setProjectName("");
     setProjectId("");
@@ -292,7 +310,9 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setTaxId("");
     setContactName("");
     setClientAddress("");
+    setObservations("");
     setContactPhone("");
+    setProjectActionMessage("");
     setInstallationAddress("");
     setSameInstallationAddress(true);
     setSystem("on_grid");
@@ -351,14 +371,15 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
             <button type="button" className="button-reset" onClick={() => { reset(); setActiveSection("sizing"); }}>＋ <span>Nuevo cálculo</span></button>
           </div>
           {projects.length === 0 ? <div className="sizer-card projects-empty"><span className="empty-project-icon" aria-hidden="true">▤</span><h2>Aún no tienes proyectos</h2><p>Cuando guardes un cálculo, aparecerá aquí para que puedas consultarlo y continuar.</p><button type="button" className="calculate-button" onClick={() => { reset(); setActiveSection("sizing"); }}>Crear primer cálculo</button></div> : <div className="projects-list" aria-label="Lista de proyectos">
-            {projects.map((project) => {
+            {projectActionMessage && <p className="form-success" role="status">{projectActionMessage}</p>}
+          {projects.map((project) => {
               const simulation = project.latestSimulation;
               const statusLabel: Record<string, string> = { draft: "Borrador", in_review: "En revisión", needs_review: "En revisión", approved: "Aprobado", rejected: "Requiere ajustes", archived: "Archivado" };
               const status = simulation?.status ?? project.status;
               const canContinue = status !== "in_review" && status !== "needs_review";
               return <article className="project-list-card" key={project.id}>
                 <div className="project-list-main"><div className="project-list-title"><h2>{project.name}</h2><span className={`project-status-chip ${status === "approved" ? "approved" : status === "rejected" ? "attention" : status === "in_review" || status === "needs_review" ? "review" : ""}`}>{statusLabel[status] ?? status.replaceAll("_", " ")}</span></div><p>{project.client.legalName}{project.systemType ? ` · ${systemLabels[project.systemType]}` : ""}</p><div className="project-list-meta"><span>{simulation ? `Versión ${simulation.version}` : "Sin cálculo guardado"}</span><span>Actualizado {new Date(project.updatedAt).toLocaleDateString("es-CO")}</span>{simulation?.panelCount ? <span>{simulation.panelCount} paneles · {Number(simulation.pvKwp ?? 0).toFixed(2)} kWp</span> : null}</div>{status === "rejected" && simulation?.reviewNotes && <p className="project-review-notes"><strong>Observación técnica:</strong> {simulation.reviewNotes}</p>}</div>
-                <div className="project-list-actions"><button type="button" className="button-reset project-open-button" onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}>{canContinue ? "Abrir proyecto" : "Ver proyecto"}</button>{role === "operator" && simulation && <a className="button-reset project-open-button project-report-link" href={`/operator/projects/${project.id}/report`} target="_blank" rel="noreferrer">Ficha para cliente</a>}{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
+                <div className="project-list-actions" aria-label="Acciones del proyecto"><div className="project-icon-actions"><button type="button" className="project-icon-button" data-tooltip={canContinue ? "Abrir o editar este proyecto" : "Ver el proyecto; está bloqueado durante la revisión"} aria-label={canContinue ? "Abrir o editar proyecto" : "Ver proyecto bloqueado"} onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button>{role === "operator" && <a className="project-icon-button" data-tooltip="Abrir la ficha para imprimir o guardar como PDF" aria-label="Abrir ficha para cliente en PDF" href={`/operator/projects/${project.id}/report`} target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M9 14h6M9 17h6"/></svg></a>}{role === "operator" && <button type="button" className="project-icon-button danger" data-tooltip={simulation?.status === "draft" ? "Eliminar el borrador; se conserva su historial" : "Solo se pueden eliminar borradores no enviados"} aria-label="Eliminar borrador" disabled={simulation?.status !== "draft"} onClick={() => void archiveDraft(project.id, project.name)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg></button>}</div>{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
               </article>;
             })}
           </div>}
@@ -429,17 +450,22 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
                 <span className="field-hint" id="phone-hint">Solo números; puedes usar +, espacios o guiones.</span>
               </label>
               <label className="sizer-field">
-                <span className="sizer-label">Dirección del cliente</span>
-                <input className="text-input" required maxLength={500} autoComplete="street-address" placeholder="Dirección de contacto" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
+                <span className="sizer-label">Dirección principal del cliente</span>
+                <input className="text-input" required maxLength={500} autoComplete="street-address" placeholder="Dirección que usaremos como principal" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
               </label>
             </div>
-            <label className="same-address-toggle"><input type="checkbox" checked={sameInstallationAddress} onChange={(event) => { setSameInstallationAddress(event.target.checked); if (event.target.checked) setInstallationAddress(""); }} /><span>La instalación será en la dirección del cliente</span></label>
+            <label className="same-address-toggle"><input type="checkbox" checked={!sameInstallationAddress} onChange={(event) => { setSameInstallationAddress(!event.target.checked); if (!event.target.checked) setInstallationAddress(""); }} /><span>¿La instalación será en una dirección diferente?</span></label>
             {!sameInstallationAddress && <label className="sizer-field project-name-field">
               <span className="sizer-label">Dirección de instalación</span>
               <input className="text-input" required maxLength={500} placeholder="Dirección donde se instalará el sistema" value={installationAddress} onChange={(event) => setInstallationAddress(event.target.value)} />
             </label>}
-            <p className="field-hint address-purpose-hint">La dirección del cliente sirve para contacto. Indica otra dirección solo si el sistema se instalará en un lugar distinto.</p>
+            <p className="field-hint address-purpose-hint">Usa una sola dirección si el contacto y la instalación coinciden. Activa la opción únicamente cuando el sistema se instalará en otro lugar.</p>
 
+            <label className="sizer-field project-name-field observations-field">
+              <span className="sizer-label">Observaciones internas (opcional)</span>
+              <textarea className="text-input" maxLength={1500} rows={3} placeholder="Detalles para el equipo técnico; no aparecen en la ficha del cliente." value={observations} onChange={(event) => setObservations(event.target.value)} />
+              <span className="field-hint">Se guardan con la versión del cálculo y no se incluyen en el PDF para el cliente.</span>
+            </label>
           </section>
           <section className="sizer-card input-card" aria-labelledby="technical-input-title">
             <div className="card-heading">
