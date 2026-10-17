@@ -218,3 +218,12 @@ button { cursor: pointer; }
   .project-list-actions { justify-items: stretch; }
   .project-open-button { width: 100%; }
 }
+
+
+.sizer-form-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
+.sizer-form-lock:disabled { opacity: .76; }
+.sizer-form-lock:disabled input,
+.sizer-form-lock:disabled select,
+.sizer-form-lock:disabled button { cursor: not-allowed; }
+.review-lock-banner { display: flex; flex-direction: column; gap: 4px; margin: 0 0 16px; padding: 13px 16px; border: 1px solid #ead7a8; border-radius: 10px; background: #fffaf0; color: #705315; font-size: 13px; line-height: 1.5; }
+.review-lock-banner strong { color: #654600; }
