@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { isValidColombianIdentification, isValidPhone } from "@/lib/validation/colombian-identification";
+import { isValidBusinessName, isValidColombianIdentification, isValidPersonName, isValidPhone } from "@/lib/validation/colombian-identification";
 
 type SystemType = "on_grid" | "hybrid" | "off_grid";
+type CalculationSnapshot = { system: SystemType; monthlyUse: number; sunHours: number; panelWatts: number; lossPercent: number; autonomyDays: number; energyRateCopKwh: number; estimatedInvestmentCop: number };
 type SavedProject = {
   id: string; name: string; status: string; address: string | null; systemType: SystemType | null;
   client: { legalName: string; legalType: "natural_person" | "legal_entity" | null; taxIdType: "cedula" | "nit" | null; taxId: string | null; address: string | null; contactName: string | null; contactPhone: string | null };
@@ -23,6 +24,7 @@ function Field({
   min,
   max,
   step = "any",
+  optional = false,
   onChange,
 }: {
   label: string;
@@ -31,14 +33,16 @@ function Field({
   min: number;
   max: number;
   step?: number | string;
+  optional?: boolean;
   onChange: (value: number) => void;
 }) {
   return (
     <label className="sizer-field">
-      <span className="sizer-label">{label}</span>
+      <span className="sizer-label">{label}{optional ? <span className="unit-hint"> (opcional)</span> : " *"}</span>
       <span className="sizer-input-wrap">
         <input
           type="number"
+          required={!optional}
           inputMode="decimal"
           min={min}
           max={max}
@@ -71,6 +75,7 @@ export function SolarSizingWorkspace() {
   const [autonomyDays, setAutonomyDays] = useState(1);
   const [energyRateCopKwh, setEnergyRateCopKwh] = useState(0);
   const [estimatedInvestmentCop, setEstimatedInvestmentCop] = useState(0);
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0 });
   const [hasCalculated, setHasCalculated] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -117,31 +122,32 @@ export function SolarSizingWorkspace() {
       if (inputs.lossesPercent != null) setLossPercent(Number(inputs.lossesPercent));
       if (inputs.autonomyDays != null) setAutonomyDays(Number(inputs.autonomyDays));
     }
-    setError(""); setSubmitted(""); setHasCalculated(true);
+    setError(""); setSubmitted(""); setHasCalculated(false);
   }
 
   const result = useMemo(() => {
-    const dailyUse = monthlyUse / 30;
-    const performanceRatio = Math.max(0.01, 1 - lossPercent / 100);
-    const safeSunHours = Math.max(0.1, sunHours);
-    const safePanelWatts = Math.max(1, panelWatts);
+    const { monthlyUse: calculatedUse, sunHours: calculatedSunHours, panelWatts: calculatedPanelWatts, lossPercent: calculatedLossPercent, autonomyDays: calculatedAutonomyDays } = calculationSnapshot;
+    const dailyUse = calculatedUse / 30;
+    const performanceRatio = Math.max(0.01, 1 - calculatedLossPercent / 100);
+    const safeSunHours = Math.max(0.1, calculatedSunHours);
+    const safePanelWatts = Math.max(1, calculatedPanelWatts);
     const arrayKwp = dailyUse / (safeSunHours * performanceRatio);
     const panelCount = Math.ceil((arrayKwp * 1000) / safePanelWatts);
     const installedKwp = (panelCount * safePanelWatts) / 1000;
     const monthlyProduction = installedKwp * safeSunHours * 30 * performanceRatio;
-    const batteryKwh = dailyUse * Math.max(0, autonomyDays) / (0.8 * 0.9);
+    const batteryKwh = dailyUse * Math.max(0, calculatedAutonomyDays) / (0.8 * 0.9);
     return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
-  }, [autonomyDays, lossPercent, monthlyUse, panelWatts, sunHours]);
+  }, [calculationSnapshot]);
 
   const roi = useMemo(() => {
-    const monthlyOffsetKwh = Math.min(monthlyUse, result.monthlyProduction);
-    const annualSavingsCop = monthlyOffsetKwh * energyRateCopKwh * 12;
+    const monthlyOffsetKwh = Math.min(calculationSnapshot.monthlyUse, result.monthlyProduction);
+    const annualSavingsCop = monthlyOffsetKwh * calculationSnapshot.energyRateCopKwh * 12;
     return {
       annualSavingsCop,
-      roiPercent: estimatedInvestmentCop > 0 ? (annualSavingsCop / estimatedInvestmentCop) * 100 : 0,
-      paybackYears: annualSavingsCop > 0 ? estimatedInvestmentCop / annualSavingsCop : 0,
+      roiPercent: calculationSnapshot.estimatedInvestmentCop > 0 ? (annualSavingsCop / calculationSnapshot.estimatedInvestmentCop) * 100 : 0,
+      paybackYears: annualSavingsCop > 0 ? calculationSnapshot.estimatedInvestmentCop / annualSavingsCop : 0,
     };
-  }, [energyRateCopKwh, estimatedInvestmentCop, monthlyUse, result.monthlyProduction]);
+  }, [calculationSnapshot, result.monthlyProduction]);
 
   function calculate() {
     setSubmitted("");
@@ -163,21 +169,23 @@ export function SolarSizingWorkspace() {
       setHasCalculated(false);
       return;
     }
+    setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays, energyRateCopKwh, estimatedInvestmentCop });
     setError("");
     setHasCalculated(true);
   }
 
   async function submitForReview() {
     if (!projectName.trim()) { setError("Escribe el nombre del proyecto antes de enviarlo a revisión."); return; }
-    if (legalName.trim().length < 3) { setError(legalType === "natural_person" ? "Escribe el nombre completo del cliente." : "Escribe la razón social de la empresa."); return; }
+    if (legalType === "natural_person" && !isValidPersonName(legalName)) { setError("El nombre debe usar solo letras, espacios, apóstrofes o guiones."); return; }
+    if (legalType === "legal_entity" && !isValidBusinessName(legalName)) { setError("Escribe una razón social válida."); return; }
     if (!isValidColombianIdentification(taxId, legalType)) {
       setError(legalType === "natural_person" ? "La cédula debe tener entre 6 y 10 dígitos." : "El NIT debe tener 9 dígitos y un dígito de verificación válido.");
       return;
     }
-    if (legalType === "legal_entity" && contactName.trim().length < 3) { setError("Indica quién es el contacto responsable de la empresa."); return; }
+    if (legalType === "legal_entity" && !isValidPersonName(contactName)) { setError("El contacto responsable debe tener un nombre válido, usando solo letras."); return; }
     if (clientAddress.trim().length < 5) { setError("Escribe la dirección del cliente."); return; }
     if (!isValidPhone(contactPhone)) { setError("Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos."); return; }
-    if (!hasCalculated) { setError("Primero calcula el dimensionamiento con datos válidos."); return; }
+    if (!hasCalculated) { setError("Los datos cambiaron. Pulsa Calcular dimensionamiento antes de guardar."); return; }
     setSaving(true); setError(""); setSubmitted("");
     try {
       const response = await fetch("/api/simulations", {
@@ -213,6 +221,7 @@ export function SolarSizingWorkspace() {
     setAutonomyDays(1);
     setEnergyRateCopKwh(0);
     setEstimatedInvestmentCop(0);
+    setCalculationSnapshot({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0 });
     setError("");
     setSubmitted("");
     setHasCalculated(false);
@@ -254,15 +263,16 @@ export function SolarSizingWorkspace() {
         </div>
 
         <div className="sizer-grid">
+          <div className="input-stack">
           <section className="sizer-card input-card" aria-labelledby="project-input-title">
             <div className="card-heading">
               <div className="step-badge">01</div>
-              <div><h2 id="project-input-title">Datos del proyecto</h2><p>Completa los datos de entrada del sistema.</p></div>
+              <div><h2 id="project-input-title">Proyecto y cliente</h2><p>Completa los datos obligatorios del proyecto y del cliente.</p></div>
             </div>
 
             <label className="sizer-field project-name-field">
               <span className="sizer-label">Nombre del proyecto</span>
-              <input className="text-input" placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+              <input className="text-input" required maxLength={200} placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
             </label>
             <div className="project-picker-row">
               <label className="sizer-field">
@@ -280,32 +290,34 @@ export function SolarSizingWorkspace() {
             <div className="form-section-title"><span>Datos del cliente</span><span className="unit-hint">Se guardan con el proyecto</span></div>
             <label className="sizer-field project-name-field">
               <span className="sizer-label">Tipo de persona</span>
-              <select className="text-input" value={legalType} onChange={(event) => { setLegalType(event.target.value as "natural_person" | "legal_entity"); setTaxId(""); }}>
+              <select className="text-input" required value={legalType} onChange={(event) => { setLegalType(event.target.value as "natural_person" | "legal_entity"); setTaxId(""); setContactName(""); }}>
                 <option value="natural_person">Persona natural</option>
                 <option value="legal_entity">Persona jurídica</option>
               </select>
             </label>
             <label className="sizer-field project-name-field">
               <span className="sizer-label">{legalType === "natural_person" ? "Nombre completo" : "Razón social"}</span>
-              <input className="text-input" autoComplete="name" placeholder={legalType === "natural_person" ? "Nombre y apellidos" : "Nombre legal de la empresa"} value={legalName} onChange={(event) => setLegalName(event.target.value)} />
+              <input className="text-input" required maxLength={200} autoComplete="name" placeholder={legalType === "natural_person" ? "Nombre y apellidos" : "Nombre legal de la empresa"} value={legalName} onChange={(event) => setLegalName(event.target.value)} aria-describedby="legal-name-hint" />
+              <span className="field-hint" id="legal-name-hint">{legalType === "natural_person" ? "Usa letras, espacios, apóstrofes o guiones." : "Ingresa la razón social registrada."}</span>
             </label>
             <label className="sizer-field project-name-field">
               <span className="sizer-label">{legalType === "natural_person" ? "Cédula" : "NIT"}</span>
-              <input className="text-input" inputMode="numeric" autoComplete="off" placeholder={legalType === "natural_person" ? "Número de identificación" : "Ej. 900123456-3"} value={taxId} onChange={(event) => setTaxId(event.target.value)} aria-describedby="tax-id-hint" />
+              <input className="text-input" required inputMode="numeric" autoComplete="off" placeholder={legalType === "natural_person" ? "Número de identificación" : "Ej. 900123456-3"} value={taxId} onChange={(event) => setTaxId(event.target.value.replace(/[^\d.\-]/g, ""))} aria-describedby="tax-id-hint" />
               <span className="field-hint" id="tax-id-hint">{legalType === "natural_person" ? "De 6 a 10 dígitos." : "9 dígitos más el dígito de verificación; se valida automáticamente."}</span>
             </label>
             {legalType === "legal_entity" && <label className="sizer-field project-name-field">
               <span className="sizer-label">Persona de contacto responsable</span>
-              <input className="text-input" autoComplete="name" placeholder="Nombre de quien solicita el análisis" value={contactName} onChange={(event) => setContactName(event.target.value)} />
+              <input className="text-input" required maxLength={160} autoComplete="name" placeholder="Nombre de quien solicita el análisis" value={contactName} onChange={(event) => setContactName(event.target.value)} />
             </label>}
             <div className="input-fields client-contact-fields">
               <label className="sizer-field">
                 <span className="sizer-label">Teléfono</span>
-                <input className="text-input" type="tel" inputMode="tel" autoComplete="tel" placeholder="+57 300 123 4567" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
+                <input className="text-input" required type="tel" inputMode="tel" autoComplete="tel" placeholder="+57 300 123 4567" value={contactPhone} onChange={(event) => setContactPhone(event.target.value.replace(/[^\d+\s().-]/g, ""))} aria-describedby="phone-hint" />
+                <span className="field-hint" id="phone-hint">Solo números; puedes usar +, espacios o guiones.</span>
               </label>
               <label className="sizer-field">
                 <span className="sizer-label">Dirección del cliente</span>
-                <input className="text-input" autoComplete="street-address" placeholder="Dirección de contacto" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
+                <input className="text-input" required maxLength={500} autoComplete="street-address" placeholder="Dirección de contacto" value={clientAddress} onChange={(event) => setClientAddress(event.target.value)} />
               </label>
             </div>
             <label className="sizer-field project-name-field">
@@ -313,11 +325,17 @@ export function SolarSizingWorkspace() {
               <input className="text-input" placeholder="Lugar donde se instalaría el sistema" value={installationAddress} onChange={(event) => setInstallationAddress(event.target.value)} />
             </label>
 
+          </section>
+          <section className="sizer-card input-card" aria-labelledby="technical-input-title">
+            <div className="card-heading">
+              <div className="step-badge">02</div>
+              <div><h2 id="technical-input-title">Diseño y cálculo</h2><p>Define la modalidad, los parámetros solares y el retorno estimado.</p></div>
+            </div>
             <fieldset className="system-selector">
               <legend className="sizer-label">Modalidad del sistema</legend>
               <div className="system-options">
                 {(Object.keys(systemLabels) as SystemType[]).map((type) => (
-                  <button key={type} className={`system-option ${system === type ? "selected" : ""}`} type="button" aria-pressed={system === type} onClick={() => setSystem(type)}>
+                  <button key={type} className={`system-option ${system === type ? "selected" : ""}`} type="button" aria-pressed={system === type} onClick={() => { setSystem(type); setHasCalculated(false); setSubmitted(""); }}>
                     <span className="system-option-mark" aria-hidden="true">{system === type ? "●" : "○"}</span>{systemLabels[type]}
                   </button>
                 ))}
@@ -327,14 +345,14 @@ export function SolarSizingWorkspace() {
             <div className="input-divider" />
             <div className="form-section-title"><span>Consumo y recurso solar</span><span className="unit-hint">Unidades estándar</span></div>
             <div className="input-fields">
-              <Field label="Consumo promedio mensual" unit="kWh/mes" value={monthlyUse} min={1} max={100000} onChange={setMonthlyUse} />
-              <Field label="Horas sol pico promedio" unit="h/día" value={sunHours} min={0.1} max={10} step={0.1} onChange={setSunHours} />
-              <Field label="Potencia del panel" unit="Wp" value={panelWatts} min={1} max={1000} onChange={setPanelWatts} />
+              <Field label="Consumo promedio mensual" unit="kWh/mes" value={monthlyUse} min={1} max={100000} onChange={(value) => { setMonthlyUse(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Horas sol pico promedio" unit="h/día" value={sunHours} min={0.1} max={10} step={0.1} onChange={(value) => { setSunHours(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Potencia del panel" unit="Wp" value={panelWatts} min={1} max={1000} onChange={(value) => { setPanelWatts(value); setHasCalculated(false); setSubmitted(""); }} />
             </div>
 
             <label className="sizer-field loss-field">
               <span className="loss-label-row"><span className="sizer-label">Pérdidas estimadas</span><strong>{lossPercent}%</strong></span>
-              <input className="loss-slider" type="range" min={0} max={50} step={1} value={lossPercent} onChange={(event) => setLossPercent(Number(event.target.value))} aria-label="Pérdidas estimadas en porcentaje" />
+              <input className="loss-slider" type="range" min={0} max={50} step={1} value={lossPercent} onChange={(event) => { setLossPercent(Number(event.target.value)); setHasCalculated(false); setSubmitted(""); }} aria-label="Pérdidas estimadas en porcentaje" />
               <span className="field-hint">Incluye temperatura, cableado, inversor y suciedad.</span>
             </label>
 
@@ -342,28 +360,30 @@ export function SolarSizingWorkspace() {
             <div className="form-section-title"><span>Retorno estimado para el cliente</span><span className="unit-hint">Opcional · COP</span></div>
             <p className="field-hint">Ingresa la tarifa de energía y el valor total estimado de la oferta. No se usan costos internos.</p>
             <div className="input-fields">
-              <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} min={0} max={1000000} step={100} onChange={setEnergyRateCopKwh} />
-              <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} min={0} max={100000000000} step={100000} onChange={setEstimatedInvestmentCop} />
+              <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} min={0} max={1000000} step={100} optional onChange={(value) => { setEnergyRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} min={0} max={100000000000} step={100000} optional onChange={(value) => { setEstimatedInvestmentCop(value); setHasCalculated(false); setSubmitted(""); }} />
             </div>
 
             {system !== "on_grid" && <div className="battery-input">
-              <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={setAutonomyDays} />
+              <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={(value) => { setAutonomyDays(value); setHasCalculated(false); setSubmitted(""); }} />
               <p>Estimación preliminar de batería útil al 80% de profundidad de descarga.</p>
             </div>}
 
             {error && <p className="form-error" role="alert">{error}</p>}
+            {!hasCalculated && <p className="form-hint-box" role="status">Los datos cambiaron. Pulsa «Calcular dimensionamiento» para actualizar resultados antes de guardar.</p>}
             <button className="calculate-button" type="button" onClick={calculate}><span aria-hidden="true">↗</span> Calcular dimensionamiento</button>
-            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving || projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review"} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : projectId ? "Guardar nueva versión y enviar a revisión" : "Guardar y enviar a revisión técnica"}</button>
+            <button className="calculate-button" type="button" onClick={() => void submitForReview()} disabled={saving || !hasCalculated || projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review"} style={{ marginTop: 9, background: "#fff", color: "#005000", border: "1px solid #005000" }}>{saving ? "Enviando…" : projectId ? "Guardar nueva versión y enviar a revisión" : "Guardar y enviar a revisión técnica"}</button>
             {submitted && <p role="status" className="form-success">{submitted}</p>}
           </section>
+          </div>
 
           <section className="results-column" aria-labelledby="result-title">
             <div className="result-card">
               <div className="result-card-heading">
                 <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculated && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
-                <span className="result-status"><span /> Estimado</span>
+                <span className={`result-status ${hasCalculated ? "" : "stale"}`}><span /> {hasCalculated ? "Actualizado" : "Recalcular"}</span>
               </div>
-              <div className="system-summary"><span>{systemLabels[system]}</span><span>Panel de {panelWatts} Wp</span></div>
+              <div className="system-summary"><span>{systemLabels[calculationSnapshot.system]}</span><span>Panel de {calculationSnapshot.panelWatts} Wp</span></div>
               <div className="panel-count">
                 <span className="panel-count-label">Cantidad recomendada de paneles</span>
                 <strong>{result.panelCount}</strong>
@@ -372,12 +392,12 @@ export function SolarSizingWorkspace() {
               <div className="result-metrics">
                 <div><span>Potencia instalada</span><strong>{result.installedKwp.toFixed(2)} <small>kWp</small></strong></div>
                 <div><span>Producción estimada</span><strong>{Math.round(result.monthlyProduction).toLocaleString("es-CO")} <small>kWh/mes</small></strong></div>
-                {system !== "on_grid" && <div><span>Batería útil estimada</span><strong>{result.batteryKwh.toFixed(1)} <small>kWh</small></strong></div>}
+                {calculationSnapshot.system !== "on_grid" && <div><span>Batería útil estimada</span><strong>{result.batteryKwh.toFixed(1)} <small>kWh</small></strong></div>}
               </div>
-              <div className="result-note"><span aria-hidden="true">ⓘ</span><p>El cálculo considera {result.dailyUse.toFixed(1)} kWh/día y {lossPercent}% de pérdidas. Ajusta las horas sol pico con datos de la ubicación.</p></div>
+              <div className="result-note"><span aria-hidden="true">ⓘ</span><p>El cálculo considera {result.dailyUse.toFixed(1)} kWh/día y {calculationSnapshot.lossPercent}% de pérdidas. Ajusta las horas sol pico con datos de la ubicación.</p></div>
               <div className="input-divider" />
               <div className="form-section-title"><span>ROI simple preliminar</span><span className="unit-hint">Sin financiación ni O&amp;M</span></div>
-              {energyRateCopKwh > 0 && estimatedInvestmentCop > 0 ? <>
+              {calculationSnapshot.energyRateCopKwh > 0 && calculationSnapshot.estimatedInvestmentCop > 0 ? <>
                 <div className="result-metrics">
                   <div><span>Ahorro anual estimado</span><strong>{new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(roi.annualSavingsCop)}</strong></div>
                   <div><span>Retorno anual estimado</span><strong>{roi.roiPercent.toFixed(1)}%</strong></div>
@@ -390,7 +410,7 @@ export function SolarSizingWorkspace() {
             <div className="method-card">
               <h3>¿Cómo se calcula?</h3>
               <p>Potencia FV = consumo diario ÷ horas sol pico ÷ rendimiento del sistema. La cantidad se redondea al siguiente panel completo.</p>
-              <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - lossPercent)}%</strong></div>
+              <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - calculationSnapshot.lossPercent)}%</strong></div>
               <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
             </div>
           </section>
