@@ -333,3 +333,8 @@ button { cursor: pointer; }
   .report-toolbar p { order: 3; flex-basis: 100%; }
   .report-back-button, .report-print-button { min-height: 36px; padding-inline: 10px; font-size: 10px; }
 }
+
+
+.report-toolbar > p { flex: 1; text-align: center; }
+.report-back-button:focus-visible, .report-print-button:focus-visible { outline: 3px solid rgba(0, 80, 0, .3); outline-offset: 3px; }
+@media (max-width: 680px) { .report-toolbar > p { text-align: left; } }
