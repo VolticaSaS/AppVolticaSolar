@@ -10,6 +10,11 @@ const connectionString = process.env.DATABASE_URL;
 const email = process.env.OPERATOR_EMAIL?.trim().toLowerCase();
 const fullName = process.env.OPERATOR_FULL_NAME?.trim();
 const password = process.env.OPERATOR_PASSWORD;
+const passwordChangeSetting = process.env.OPERATOR_MUST_CHANGE_PASSWORD;
+if (passwordChangeSetting && !["true", "false"].includes(passwordChangeSetting)) {
+  throw new Error("OPERATOR_MUST_CHANGE_PASSWORD debe ser true o false.");
+}
+const mustChangePassword = passwordChangeSetting !== "false";
 if (!connectionString || !email || !fullName || !password || !isStrongPassword(password)) {
   throw new Error(`Configura DATABASE_URL, OPERATOR_EMAIL, OPERATOR_FULL_NAME y OPERATOR_PASSWORD. ${PASSWORD_POLICY_MESSAGE}`);
 }
@@ -33,7 +38,7 @@ try {
         email,
         passwordHash: await hashPassword(password),
         role: "operator",
-        mustChangePassword: true,
+        mustChangePassword,
       },
       select: { id: true },
     });
@@ -46,7 +51,9 @@ try {
       },
     });
   });
-  console.info(`Cuenta operativa creada para ${email}. El usuario deberá cambiar la contraseña al iniciar sesión.`);
+  console.info(mustChangePassword
+    ? `Cuenta operativa creada para ${email}. El usuario deberá cambiar la contraseña al iniciar sesión.`
+    : `Cuenta operativa creada para ${email}. Se conservó la contraseña indicada.`);
 } finally {
   await prisma.$disconnect();
 }
