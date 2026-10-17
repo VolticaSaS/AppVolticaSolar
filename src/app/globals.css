@@ -227,3 +227,16 @@ button { cursor: pointer; }
 .sizer-form-lock:disabled button { cursor: not-allowed; }
 .review-lock-banner { display: flex; flex-direction: column; gap: 4px; margin: 0 0 16px; padding: 13px 16px; border: 1px solid #ead7a8; border-radius: 10px; background: #fffaf0; color: #705315; font-size: 13px; line-height: 1.5; }
 .review-lock-banner strong { color: #654600; }
+
+
+.same-address-toggle { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 0; color: #445449; font-size: 13px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+.same-address-toggle input { flex: 0 0 auto; width: 17px; height: 17px; margin: 1px 0 0; accent-color: #005000; }
+.address-purpose-hint { margin-top: -7px; }
+.form-action-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 10px; }
+.form-action-row .calculate-button { margin-top: 0; }
+.form-action-row .calculate-button:first-child { border: 1px solid #005000; background: #fff; color: #005000; }
+.form-action-row .calculate-button.submit-review-button { border: 1px solid #005000; background: #005000; color: #fff; }
+.form-action-row .calculate-button:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 680px) {
+  .form-action-row { grid-template-columns: 1fr; }
+}
