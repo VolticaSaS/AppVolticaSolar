@@ -323,3 +323,13 @@ button { cursor: pointer; }
   .report-price { align-items: flex-start; flex-direction: column; }
   .report-price > span { text-align: left; }
 }
+
+
+.report-back-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 13px; border: 1px solid #d6e0d5; border-radius: 7px; background: #fff; color: var(--voltica); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.report-back-button:hover { border-color: #9fb99d; background: #f5f9f5; }
+.report-back-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+@media (max-width: 680px) {
+  .report-toolbar { flex-wrap: wrap; }
+  .report-toolbar p { order: 3; flex-basis: 100%; }
+  .report-back-button, .report-print-button { min-height: 36px; padding-inline: 10px; font-size: 10px; }
+}
