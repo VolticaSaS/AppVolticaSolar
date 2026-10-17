@@ -2,28 +2,49 @@
   "name": "app-voltica-solar",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:status": "tsx scripts/db-migrate.ts status",
+    "db:deploy": "tsx scripts/db-migrate.ts deploy",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
+    "postinstall": "prisma generate",
+    "admin:reset-password": "tsx scripts/admin-reset-password.ts",
+    "operator:create": "tsx scripts/create-operator.ts"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "argon2": "0.45.1",
+    "dotenv": "17.2.3",
     "next": "16.4.0",
+    "pg": "8.16.3",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.1.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^22.0.0",
+    "@types/pg": "8.15.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "10.12.0",
     "eslint-config-next": "16.4.0",
+    "prisma": "7.10.0",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3"
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
   }
 }

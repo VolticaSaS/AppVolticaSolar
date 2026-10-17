@@ -4,9 +4,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Voltica Solar | Energía diseñada para avanzar",
-  description:
-    "Diseñamos soluciones solares On-Grid, híbridas y Off-Grid para hogares y empresas.",
+  title: "Voltica Solar | Dimensionador",
+  description: "Herramienta técnica para el dimensionamiento preliminar de sistemas solares.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
