@@ -66,6 +66,9 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return invalidInput();
     const input = parsed.data;
+    if (input.submitForReview && !input.projectId) {
+      return NextResponse.json({ error: "Guarda primero una versión como borrador antes de enviarla a revisión." }, { status: 409 });
+    }
     const [reviewer, engineer] = await Promise.all([
       getPrisma().appUser.findFirst({ where: { role: "reviewer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
       getPrisma().appUser.findFirst({ where: { role: "engineer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
@@ -84,6 +87,9 @@ export async function POST(request: Request) {
       });
       if (nextSimulationVersion(previous) === null) {
         return NextResponse.json({ error: "Este proyecto ya tiene una versión pendiente. Espera la revisión antes de enviar otra." }, { status: 409 });
+      }
+      if (input.submitForReview && previous?.status !== "draft") {
+        return NextResponse.json({ error: "Guarda primero una versión como borrador antes de enviarla a revisión." }, { status: 409 });
       }
     }
 
