@@ -24,3 +24,14 @@ export function isValidPhone(value: string): boolean {
   const digits = trimmed.replace(/\D/g, "");
   return /^[+\d][\d\s().-]*$/.test(trimmed) && digits.length >= 7 && digits.length <= 15;
 }
+
+
+export function isValidPersonName(value: string): boolean {
+  const name = value.trim();
+  return name.length >= 3 && name.length <= 160 && /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u.test(name);
+}
+
+export function isValidBusinessName(value: string): boolean {
+  const name = value.trim();
+  return name.length >= 3 && name.length <= 200 && /^(?=.*\p{L})[\p{L}\p{M}\d&.,()\/'#-]+(?:\s+[\p{L}\p{M}\d&.,()\/'#-]+)*$/u.test(name);
+}
