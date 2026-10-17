@@ -242,3 +242,20 @@ button { cursor: pointer; }
 }
 
 .draft-before-submit-hint { margin-top: 8px; }
+
+
+/* Datos adicionales y proyección financiera */
+.advanced-assumptions { margin-top: 20px; padding: 13px 14px; border: 1px solid #e4ebe3; border-radius: 7px; background: #fbfcfb; }
+.advanced-assumptions > summary, .projection-table-details > summary { color: var(--voltica); font-size: 11px; font-weight: 700; cursor: pointer; }
+.advanced-assumptions[open] > summary { margin-bottom: 12px; }
+.advanced-assumptions > p { margin: 8px 0 0; line-height: 1.55; }
+.assumption-defaults-hint { display: block; margin-top: 10px !important; }
+.projection-highlights { margin-top: 10px; }
+.projection-table-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf0ed; }
+.projection-table-details > summary { color: #546657; font-size: 10px; }
+.projection-table-wrap { max-height: 260px; margin-top: 10px; overflow: auto; border: 1px solid #e9eeea; border-radius: 6px; }
+.projection-table-wrap table { width: 100%; border-collapse: collapse; font-size: 9px; white-space: nowrap; }
+.projection-table-wrap th, .projection-table-wrap td { padding: 8px 9px; border-bottom: 1px solid #edf0ed; text-align: right; }
+.projection-table-wrap th:first-child, .projection-table-wrap td:first-child { text-align: left; }
+.projection-table-wrap th { position: sticky; top: 0; background: #f7f9f7; color: #617062; font-weight: 700; }
+.projection-table-wrap td { color: #46534a; }
