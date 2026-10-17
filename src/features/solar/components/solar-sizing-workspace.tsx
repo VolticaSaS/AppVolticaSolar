@@ -179,7 +179,6 @@ export function SolarSizingWorkspace() {
 
   const roi = useMemo(() => {
     const monthlyOffsetKwh = Math.min(calculationSnapshot.monthlyUse, result.monthlyProduction);
-    const annualSavingsCop = monthlyOffsetKwh * calculationSnapshot.energyRateCopKwh * 12;
     const hasFinancialProjection = calculationSnapshot.selfConsumptionPercent > 0 && calculationSnapshot.energyRateCopKwh > 0 && calculationSnapshot.estimatedInvestmentCop > 0;
     const projectionRows: { year: number; generationKwh: number; netSavingsCop: number; cumulativeCop: number }[] = [];
     let cumulativeCop = -calculationSnapshot.estimatedInvestmentCop;
