@@ -11,6 +11,7 @@ import { nextSimulationVersion } from "@/lib/simulations/lifecycle";
 export const dynamic = "force-dynamic";
 const schema = z.object({
   projectId: z.string().uuid().optional(),
+  submitForReview: z.boolean().default(true),
   projectName: z.string().trim().min(2).max(200),
   legalType: z.enum(["natural_person", "legal_entity"]),
   legalName: z.string().trim().min(3).max(200),
@@ -20,6 +21,7 @@ const schema = z.object({
   clientAddress: z.string().trim().min(5).max(500),
   contactPhone: z.string().trim().min(7).max(25),
   installationAddress: z.string().trim().max(500).optional().default(""),
+  sameInstallationAddress: z.boolean().default(true),
   systemType: z.enum(["on_grid", "hybrid", "off_grid"]),
   energyKwhMonth: z.number().positive().max(100_000),
   peakSunHoursDay: z.number().positive().max(10),
@@ -32,6 +34,9 @@ const schema = z.object({
   const expectedDocument = input.legalType === "natural_person" ? "cedula" : "nit";
   if ((input.energyRateCopKwh === undefined) !== (input.estimatedInvestmentCop === undefined)) {
     context.addIssue({ code: "custom", path: ["estimatedInvestmentCop"], message: "Para calcular el ROI, indica tanto la tarifa de energía como la inversión estimada." });
+  }
+  if (!input.sameInstallationAddress && input.installationAddress.trim().length < 5) {
+    context.addIssue({ code: "custom", path: ["installationAddress"], message: "Indica una dirección de instalación válida o marca que coincide con la dirección del cliente." });
   }
   if (input.taxIdType !== expectedDocument) {
     context.addIssue({ code: "custom", path: ["taxIdType"], message: "El tipo de documento no corresponde al tipo de persona." });
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
       getPrisma().appUser.findFirst({ where: { role: "engineer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
     ]);
     // Save the operator's calculation even when no reviewer exists; it remains a draft until review can be assigned.
-    const workflowStatus = reviewer ? "needs_review" : "draft";
+    const workflowStatus = input.submitForReview && reviewer ? "needs_review" : "draft";
 
     let existingProject: { id: string; clientId: string } | null = null;
     let previous: { version: number; status: string } | null = null;
@@ -75,7 +80,7 @@ export async function POST(request: Request) {
       if (!existingProject) throw new ResourceNotFoundError();
       await requireProjectAccess(actor, existingProject.id);
       previous = await getPrisma().simulation.findFirst({
-        where: { projectId: existingProject.id }, orderBy: { version: "desc" }, select: { version: true, status: true },
+        where: { projectId: existingProject.id }, orderBy: { version: "desc" }, select: { id: true, version: true, status: true },
       });
       if (nextSimulationVersion(previous) === null) {
         return NextResponse.json({ error: "Este proyecto ya tiene una versión pendiente. Espera la revisión antes de enviar otra." }, { status: 409 });
@@ -109,10 +114,10 @@ export async function POST(request: Request) {
       if (existingProject) {
         await tx.client.update({ where: { id: existingProject.clientId }, data: clientData });
         await tx.project.update({ where: { id: existingProject.id }, data: {
-          name: input.projectName, address: input.installationAddress || null, systemType: input.systemType,
-          status: reviewer ? "in_review" : "draft", updatedAt: now,
+          name: input.projectName, address: input.sameInstallationAddress ? null : input.installationAddress || null, systemType: input.systemType,
+          status: workflowStatus === "needs_review" ? "in_review" : "draft", updatedAt: now,
         } });
-        if (reviewer) await tx.projectMembership.upsert({
+        if (workflowStatus === "needs_review" && reviewer) await tx.projectMembership.upsert({
           where: { projectId_userId: { projectId: existingProject.id, userId: reviewer.id } },
           create: { projectId: existingProject.id, userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id },
           update: {},
@@ -134,9 +139,9 @@ export async function POST(request: Request) {
       } else {
         const client = await tx.client.create({ data: { ...clientData, createdBy: actor.id } });
         const project = await tx.project.create({ data: {
-          clientId: client.id, name: input.projectName, address: input.installationAddress || null, systemType: input.systemType, status: reviewer ? "in_review" : "draft", ownerId: actor.id,
+          clientId: client.id, name: input.projectName, address: input.sameInstallationAddress ? null : input.installationAddress || null, systemType: input.systemType, status: workflowStatus === "needs_review" ? "in_review" : "draft", ownerId: actor.id,
           memberships: { createMany: { data: [
-            ...(reviewer ? [{ userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id }] : []),
+            ...(workflowStatus === "needs_review" && reviewer ? [{ userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id }] : []),
             ...(engineer ? [{ userId: engineer.id, accessRole: "engineer", assignedBy: actor.id }] : []),
           ] } },
           energyConsumption: { create: { periodMonth: month, energyKwh: input.energyKwhMonth, source: "manual" } },
@@ -145,8 +150,8 @@ export async function POST(request: Request) {
         projectId = project.id;
       }
       if (!projectId) throw new ResourceNotFoundError();
-      return tx.simulation.create({ data: {
-        projectId, createdBy: actor.id, version: nextSimulationVersion(previous) ?? 1, title: input.projectName,
+      const simulationData = {
+        projectId, createdBy: actor.id, version: previous?.status === "draft" ? previous.version : nextSimulationVersion(previous) ?? 1, title: input.projectName,
         systemType: input.systemType, batteryEnabled: input.systemType !== "on_grid", desiredCoverageFraction: 1,
         systemLossFraction: lossFraction, backupHours: input.systemType === "on_grid" ? null : input.autonomyDays * 24,
         backupLoadKw: input.systemType === "on_grid" ? null : dailyKwh / 24,
@@ -162,7 +167,12 @@ export async function POST(request: Request) {
         resultDetails: { pv_kwp_required: pvKwpRequired, performance_ratio: performanceRatio, methodology: "consumo diario / HSP / rendimiento" },
         warnings: ["Dimensionamiento preliminar; requiere validación de ingeniería antes de cotizar o instalar."],
         status: workflowStatus,
-      }, select: { id: true, projectId: true, resultPanelCount: true, version: true } });
+      };
+      const simulationSelect = { id: true, projectId: true, resultPanelCount: true, version: true } as const;
+      if (previous?.status === "draft") {
+        return tx.simulation.update({ where: { id: previous.id }, data: simulationData, select: simulationSelect });
+      }
+      return tx.simulation.create({ data: simulationData, select: simulationSelect });
     }, { isolationLevel: "Serializable" });
     await writeAuditEvent({ actorId: actor.id, action: workflowStatus === "needs_review" ? "simulation.submit_for_review" : "simulation.save_draft", entityType: "simulation", entityId: simulation.id });
     return NextResponse.json({ simulation: { id: simulation.id, projectId: simulation.projectId, version: simulation.version, panelCount: simulation.resultPanelCount, status: workflowStatus } }, { status: 201 });
