@@ -63,7 +63,7 @@ function Field({
   );
 }
 
-export function SolarSizingWorkspace() {
+export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }) {
   const [activeSection, setActiveSection] = useState<"sizing" | "projects">("sizing");
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -355,7 +355,7 @@ export function SolarSizingWorkspace() {
               const canContinue = status !== "in_review" && status !== "needs_review";
               return <article className="project-list-card" key={project.id}>
                 <div className="project-list-main"><div className="project-list-title"><h2>{project.name}</h2><span className={`project-status-chip ${status === "approved" ? "approved" : status === "rejected" ? "attention" : status === "in_review" || status === "needs_review" ? "review" : ""}`}>{statusLabel[status] ?? status.replaceAll("_", " ")}</span></div><p>{project.client.legalName}{project.systemType ? ` · ${systemLabels[project.systemType]}` : ""}</p><div className="project-list-meta"><span>{simulation ? `Versión ${simulation.version}` : "Sin cálculo guardado"}</span><span>Actualizado {new Date(project.updatedAt).toLocaleDateString("es-CO")}</span>{simulation?.panelCount ? <span>{simulation.panelCount} paneles · {Number(simulation.pvKwp ?? 0).toFixed(2)} kWp</span> : null}</div>{status === "rejected" && simulation?.reviewNotes && <p className="project-review-notes"><strong>Observación técnica:</strong> {simulation.reviewNotes}</p>}</div>
-                <div className="project-list-actions"><button type="button" className="button-reset project-open-button" onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}>{canContinue ? "Abrir proyecto" : "Ver proyecto"}</button>{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
+                <div className="project-list-actions"><button type="button" className="button-reset project-open-button" onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}>{canContinue ? "Abrir proyecto" : "Ver proyecto"}</button>{role === "operator" && simulation && <a className="button-reset project-open-button project-report-link" href={`/operator/projects/${project.id}/report`} target="_blank" rel="noreferrer">Ficha para cliente</a>}{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
               </article>;
             })}
           </div>}
