@@ -53,7 +53,9 @@ El servicio web y PostgreSQL deben estar en el entorno **production**. En Railwa
 - `DATABASE_NAME=db_voltica_solar` para que la app y Prisma usen ese nombre sin modificar `POSTGRES_DB` ni el volumen existente.
 - `VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true` solo para autorizar una ejecución inicial o una migración pendiente. Tras verificarla, cámbiala a `false`.
 
-El `preDeployCommand` de `railway.json` corre en un despliegue nuevo antes de que arranque la app. En Production, verifica el entorno y servicio; si hace falta, crea únicamente la base vacía `db_voltica_solar` dentro del Postgres de Production. Prisma crea las tablas y registra las migraciones. Si el permiso `CREATEDB` no está disponible, o el destino no coincide, el despliegue se detiene sin crear tablas en otra base.
+El `preDeployCommand` de `railway.json` corre en un despliegue nuevo antes de que arranque la app.
+
+En la configuración del servicio `AppVolticaSolar` de Railway, el campo **Pre-Deploy Command** también debe reflejar este comando: `node --experimental-strip-types scripts/db-migrate.ts deploy`. La configuración guardada en el servicio prevalece en este entorno si está presente. En Production, verifica el entorno y servicio; si hace falta, crea únicamente la base vacía `db_voltica_solar` dentro del Postgres de Production. Prisma crea las tablas y registra las migraciones. Si el permiso `CREATEDB` no está disponible, o el destino no coincide, el despliegue se detiene sin crear tablas en otra base.
 
 Una vez que no haya migraciones pendientes, los despliegues normales verifican el historial y siguen. Una migración nueva en Production se detiene si la variable de autorización no está activa. Las migraciones no corren en el comando de inicio de Next.js.
 
