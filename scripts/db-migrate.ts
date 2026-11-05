@@ -87,7 +87,7 @@ async function connectToTarget(): Promise<Client> {
       await client.end();
       fail(`SELECT current_database() devolvió "${database ?? "(sin resultado)"}"; se exige "${EXPECTED_DATABASE}". No se ejecutó Prisma.`);
     }
-    console.log(`[db-migrate] Destino comprobado: ${database}; entorno ${environment}; servicio ${EXPECTED_SERVICE}.`);
+    console.log(`[db-migrate] Destino comprobado: ${database}; entorno ${process.env.RAILWAY_ENVIRONMENT_NAME}; servicio ${EXPECTED_SERVICE}.`);
     return client;
   } catch (error) {
     if (client) await client.end().catch(() => undefined);
