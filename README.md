@@ -82,9 +82,9 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
 
 ### Nombre de base y conexión Railway
 
-1. En el entorno **Development**, confirma que `db_voltica_solar` existe. En el editor SQL de Railway, selecciona explícitamente esa base y verifica `SELECT current_database();`; el editor puede abrir inicialmente `railway`.
-2. En Variables del servicio `AppVolticaSolar` en **Development**, configura `DATABASE_URL` con los datos administrados del servicio `Postgres` y la conexión privada. Conserva host privado, usuario, contraseña, puerto y parámetros; el componente de ruta debe terminar en `/db_voltica_solar`. Guarda la URI únicamente como variable administrada en Railway, nunca en Git, tickets o logs. No cambies `POSTGRES_DB`, `PGDATABASE` ni el volumen de Postgres.
-3. Despliega en Development la revisión que contiene `scripts/db-migrate.ts`. El comando rechaza cualquier servicio/entorno distinto de `AppVolticaSolar`/`Development`, comprueba en vivo `SELECT current_database()` y exige exactamente `db_voltica_solar` antes de invocar Prisma. El mismo `DATABASE_URL` se usa para el preflight PostgreSQL, Prisma Migrate y el cliente de la aplicación.
+1. En cada entorno, confirma que `db_voltica_solar` existe. En el editor SQL de Railway, selecciona explícitamente esa base y verifica `SELECT current_database();`; el editor puede abrir inicialmente `railway`.
+2. En Variables del servicio `AppVolticaSolar` del entorno correspondiente, configura `DATABASE_URL` con una referencia al servicio `Postgres` y la conexión privada a `db_voltica_solar`. Conserva host privado, usuario, contraseña, puerto y parámetros; la ruta debe terminar en `/db_voltica_solar`. Guarda la URI únicamente como variable administrada en Railway, nunca en Git, tickets o logs. No cambies `POSTGRES_DB`, `PGDATABASE` ni el volumen de Postgres.
+3. Despliega en Development la revisión que contiene `scripts/db-migrate.ts`. El comando rechaza cualquier servicio distinto de `AppVolticaSolar`, comprueba en vivo `SELECT current_database()` y exige exactamente `db_voltica_solar` antes de invocar Prisma. En Development el entorno está permitido directamente; en `production`, `db:deploy` exige además `VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true` en la misma invocación. El mismo `DATABASE_URL` se usa para el preflight PostgreSQL, Prisma Migrate y el cliente de la aplicación.
 
 ### Base nueva
 
@@ -111,7 +111,7 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
 2. Si v1 se creó previamente sin historial Prisma, el wrapper detendrá la operación al detectar tablas sin historial. No ejecutes directamente `prisma migrate resolve`: primero solicita una reconciliación revisada con el DBA, valida que todas las tablas, columnas y restricciones coinciden con la baseline en una sesión conectada a `db_voltica_solar`, y registra la baseline solo después de esa comprobación. `migrate resolve` registra historial y no ejecuta el archivo baseline.
 3. Si ya se aplicó v3, `db:status` mostrará las migraciones incrementales v4 y v5 pendientes; después de revisar el estado, `db:deploy` aplicará esos ajustes. Si ya se aplicó v4, solo debe aparecer v5 pendiente. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
 
-`db:deploy` altera la base indicada por `DATABASE_URL`. El guard también requiere las variables Railway `RAILWAY_ENVIRONMENT_NAME=Development` y `RAILWAY_SERVICE_NAME=AppVolticaSolar`, además de que PostgreSQL confirme el nombre de base correcto. No ejecutes este comando desde Production. La compilación y los comandos de inicio normales no despliegan migraciones automáticamente.
+`db:deploy` altera la base indicada por `DATABASE_URL`. El guard requiere `RAILWAY_SERVICE_NAME=AppVolticaSolar` y que PostgreSQL confirme el nombre de base correcto. En Production solo se permite una ejecución explícita con `VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true`; no se configura automáticamente al iniciar Next.js ni en los despliegues normales.
 
 ### Rollback
 
@@ -129,7 +129,7 @@ src/lib/data/           Consultas y DTOs explícitos
 src/features/           Funcionalidades de dominio e interfaz
 ```
 
-El seed opcional `prisma/seed.ts` solo crea parámetros demostrativos no financieros; nunca crea usuarios. No ejecutes migraciones en producción desde este cambio.
+El seed opcional `prisma/seed.ts` solo crea parámetros demostrativos no financieros; nunca crea usuarios. Ejecuta migraciones de producción únicamente con autorización explícita, destino verificado y el procedimiento anterior.
 
 ## Datos del cliente en cada análisis
 
