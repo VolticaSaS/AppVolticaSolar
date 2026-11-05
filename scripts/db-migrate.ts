@@ -6,7 +6,7 @@ import { Client } from "pg";
 loadEnv({ path: [".env.local", ".env"] });
 
 const EXPECTED_DATABASE = "db_voltica_solar";
-const EXPECTED_ENVIRONMENT = "Development";
+const SUPPORTED_ENVIRONMENTS = ["Development", "production"] as const;
 const EXPECTED_SERVICE = "AppVolticaSolar";
 const MIGRATIONS = [
   "20261011090000_v1_baseline",
@@ -61,8 +61,9 @@ function fail(message: string): never {
 }
 
 function assertRailwayTarget(): void {
-  if (process.env.RAILWAY_ENVIRONMENT_NAME !== EXPECTED_ENVIRONMENT) {
-    fail(`RAILWAY_ENVIRONMENT_NAME debe ser exactamente "${EXPECTED_ENVIRONMENT}". No se ejecuta fuera de ese entorno.`);
+  const environment = process.env.RAILWAY_ENVIRONMENT_NAME;
+  if (!SUPPORTED_ENVIRONMENTS.includes(environment as (typeof SUPPORTED_ENVIRONMENTS)[number])) {
+    fail(`RAILWAY_ENVIRONMENT_NAME debe ser Development o production. No se ejecuta en "${environment ?? "(sin configurar)"}".`);
   }
   if (process.env.RAILWAY_SERVICE_NAME !== EXPECTED_SERVICE) {
     fail(`RAILWAY_SERVICE_NAME debe ser exactamente "${EXPECTED_SERVICE}". Ejecuta este comando desde el servicio web correcto.`);
@@ -86,7 +87,7 @@ async function connectToTarget(): Promise<Client> {
       await client.end();
       fail(`SELECT current_database() devolvió "${database ?? "(sin resultado)"}"; se exige "${EXPECTED_DATABASE}". No se ejecutó Prisma.`);
     }
-    console.log(`[db-migrate] Destino comprobado: ${database}; entorno ${EXPECTED_ENVIRONMENT}; servicio ${EXPECTED_SERVICE}.`);
+    console.log(`[db-migrate] Destino comprobado: ${database}; entorno ${environment}; servicio ${EXPECTED_SERVICE}.`);
     return client;
   } catch (error) {
     if (client) await client.end().catch(() => undefined);
@@ -168,6 +169,9 @@ async function main(): Promise<void> {
   const command = process.argv[2];
   if (command !== "status" && command !== "deploy") fail("Uso: npm run db:status | npm run db:deploy");
   assertRailwayTarget();
+  if (command === "deploy" && process.env.RAILWAY_ENVIRONMENT_NAME === "production" && process.env.VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION !== "true") {
+    fail("En production, npm run db:deploy requiere VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true como autorización explícita de una sola ejecución.");
+  }
   const client = await connectToTarget();
   try {
     await rejectUntrackedExistingSchema(client);
