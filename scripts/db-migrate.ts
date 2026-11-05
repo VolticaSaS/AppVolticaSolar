@@ -73,6 +73,45 @@ function assertRailwayTarget(): void {
   }
 }
 
+function targetDatabaseUrl(): string {
+  const url = new URL(process.env.DATABASE_URL!);
+  url.pathname = `/${EXPECTED_DATABASE}`;
+  return url.toString();
+}
+
+async function ensureProductionDatabase(): Promise<void> {
+  const maintenanceUrl = new URL(process.env.DATABASE_URL!);
+  maintenanceUrl.pathname = "/postgres";
+  const client = new Client({
+    connectionString: maintenanceUrl.toString(),
+    connectionTimeoutMillis: 10_000,
+    application_name: "voltica-production-database-bootstrap",
+  });
+  try {
+    await client.connect();
+    const result = await client.query<{ exists: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists",
+      [EXPECTED_DATABASE],
+    );
+    if (result.rows[0]?.exists) return;
+    if (process.env.VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION !== "true") {
+      fail(`La base ${EXPECTED_DATABASE} aún no existe. Para crearla y aplicar las migraciones se requiere VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true.`);
+    }
+    try {
+      // Creates the empty database only; Prisma remains the sole owner of schema/table creation.
+      await client.query(`CREATE DATABASE "${EXPECTED_DATABASE}"`);
+      console.log(`[db-migrate] Base vacía ${EXPECTED_DATABASE} creada en el Postgres de Production.`);
+    } catch (error) {
+      if ((error as { code?: string })?.code !== "42P04") throw error;
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("[db-migrate] ERROR:")) throw error;
+    fail("No se pudo verificar o crear la base destino en Production. Revisa permisos CREATEDB y la configuración del Postgres de Production.");
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 async function connectToTarget(): Promise<Client> {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -167,22 +206,23 @@ async function verifyCompleted(client: Client): Promise<void> {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
-  if (command !== "status" && command !== "deploy") fail("Uso: npm run db:status | npm run db:deploy");
+  if (command !== "status" && command !== "deploy") fail("Uso: node scripts/db-migrate.ts status | deploy");
   assertRailwayTarget();
-  if (command === "deploy" && process.env.RAILWAY_ENVIRONMENT_NAME === "production" && process.env.VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION !== "true") {
-    fail("En production, npm run db:deploy requiere VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true como autorización explícita de una sola ejecución.");
+  if (command === "deploy" && process.env.RAILWAY_ENVIRONMENT_NAME === "production") {
+    await ensureProductionDatabase();
   }
+  process.env.DATABASE_URL = targetDatabaseUrl();
   const client = await connectToTarget();
   try {
     await rejectUntrackedExistingSchema(client);
-    console.log(`[db-migrate] Ejecutando prisma migrate ${command}...`);
-    const result = runPrisma(command);
+    const status = runPrisma("status");
+    const pending = isOnlyPendingMigrations(status.output);
     if (command === "status") {
-      if (result.code === 0) {
+      if (status.code === 0) {
         console.log("[db-migrate] Estado Prisma consultado; no se modificó la base de datos.");
         return;
       }
-      if (isOnlyPendingMigrations(result.output)) {
+      if (pending) {
         console.log("[db-migrate] Prisma reporta migraciones pendientes. No se modificó la base de datos.");
         process.exitCode = 2;
         return;
@@ -190,13 +230,23 @@ async function main(): Promise<void> {
       fail("Prisma detectó un error o una historia divergente; no se aplicó ninguna migración.");
     }
 
+    if (!pending && status.code === 0) {
+      console.log("[db-migrate] No hay migraciones pendientes; no se modificó la base de datos.");
+      await verifyCompleted(client);
+      return;
+    }
+    if (!pending) fail("Prisma detectó un error o una historia divergente; no se aplicó ninguna migración.");
+    if (process.env.RAILWAY_ENVIRONMENT_NAME === "production" && process.env.VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION !== "true") {
+      fail("Hay migraciones pendientes en Production; habilita VOLTICA_ALLOW_PRODUCTION_DB_MIGRATION=true solo para esta ejecución autorizada.");
+    }
+    console.log("[db-migrate] Aplicando migraciones Prisma pendientes...");
+    const result = runPrisma("deploy");
     if (result.code !== 0) fail("prisma migrate deploy falló; revisa el log de Railway y el historial antes de reintentar.");
     await verifyCompleted(client);
   } finally {
     await client.end();
   }
 }
-
 main().catch((error: unknown) => {
   if (error instanceof Error && error.message.startsWith("[db-migrate] ERROR:")) {
     console.error(error.message);
