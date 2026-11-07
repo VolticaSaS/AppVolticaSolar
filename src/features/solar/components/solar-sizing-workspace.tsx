@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 12521)
+Total output lines: 609
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -47,12 +50,12 @@ function Field({
           min={min}
           max={max}
           step={step}
-          value={optional && value === 0 ? "" : value}
+          value={value === 0 ? "" : value}
           onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
           onBlur={(event) => {
             const normalizedValue = Number(event.currentTarget.value);
             if (Number.isFinite(normalizedValue)) {
-              event.currentTarget.value = optional && normalizedValue === 0 ? "" : String(normalizedValue);
+              event.currentTarget.value = normalizedValue === 0 ? "" : String(normalizedValue);
               onChange(normalizedValue);
             }
           }}
@@ -79,8 +82,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [installationAddress, setInstallationAddress] = useState("");
   const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
   const [system, setSystem] = useState<SystemType>("on_grid");
-  const [monthlyUse, setMonthlyUse] = useState(650);
-  const [sunHours, setSunHours] = useState(4.5);
+  const [monthlyUse, setMonthlyUse] = useState(0);
+  const [sunHours, setSunHours] = useState(0);
   const [panelWatts, setPanelWatts] = useState(585);
   const [lossPercent, setLossPercent] = useState(20);
   const [autonomyDays, setAutonomyDays] = useState(1);
@@ -97,8 +100,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [roofOrientation, setRoofOrientation] = useState("sur");
   const [roofTiltDegrees, setRoofTiltDegrees] = useState(10);
   const [shadingPercent, setShadingPercent] = useState(0);
-  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
-  const [hasCalculated, setHasCalculated] = useState(true);
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+  const [hasCalculated, setHasCalculated] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
@@ -181,6 +184,11 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     const batteryKwh = dailyUse * Math.max(0, calculatedAutonomyDays) / (0.8 * 0.9);
     return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
   }, [calculationSnapshot]);
+
+  const hasCalculatedResult = hasCalculated
+    && calculationSnapshot.monthlyUse > 0
+    && calculationSnapshot.sunHours > 0
+    && calculationSnapshot.panelWatts > 0;
 
   const selectedProject = projects.find((project) => project.id === projectId);
   const isReviewLocked = selectedProject?.latestSimulation?.status === "needs_review" || selectedProject?.latestSimulation?.status === "in_review";
@@ -318,8 +326,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setInstallationAddress("");
     setSameInstallationAddress(true);
     setSystem("on_grid");
-    setMonthlyUse(650);
-    setSunHours(4.5);
+    setMonthlyUse(0);
+    setSunHours(0);
     setPanelWatts(585);
     setLossPercent(20);
     setAutonomyDays(1);
@@ -330,103 +338,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setTariffEscalationPercent(0);
     setDegradationPercent(0.5);
     setAnnualMaintenanceCop(0);
-    setAnalysisYears(20);
-    setDiscountRatePercent(0);
-    setMunicipality("");
-    setRoofOrientation("sur");
-    setRoofTiltDegrees(10);
-    setShadingPercent(0);
-    setCalculationSnapshot({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
-    setError("");
-    setSubmitted("");
-    setHasCalculated(false);
-  }
-
-  return (
-    <div className="workbench">
-      <aside className="workbench-sidebar" aria-label="Navegación del sistema">
-        <div className="workspace-label">ESPACIO DE TRABAJO</div>
-        <button type="button" className={`workspace-nav-item ${activeSection === "sizing" ? "active" : ""}`} onClick={() => setActiveSection("sizing")} aria-current={activeSection === "sizing" ? "page" : undefined}>
-          <span className="nav-glyph" aria-hidden="true">⌁</span>
-          <span>Dimensionador</span>
-        </button>
-        <button type="button" className={`workspace-nav-item ${activeSection === "projects" ? "active" : ""}`} onClick={() => setActiveSection("projects")} aria-current={activeSection === "projects" ? "page" : undefined}>
-          <span className="nav-glyph" aria-hidden="true">▤</span>
-          <span>Mis proyectos</span>
-          <span className="project-nav-count">{projects.length}</span>
-        </button>
-        <div className="workspace-nav-item disabled" aria-disabled="true" title="Disponible próximamente">
-          <span className="nav-glyph" aria-hidden="true">▦</span>
-          <span>Equipos</span>
-          <span className="nav-soon">Próximo</span>
-        </div>
-        <div className="sidebar-help">
-          <span className="help-icon" aria-hidden="true">i</span>
-          <div><strong>Estimación preliminar</strong><p>Verifica cada diseño en sitio antes de instalar.</p></div>
-        </div>
-      </aside>
-
-      <main className="sizer-main" id="dimensionador">
-        {activeSection === "projects" && <section className="projects-page" aria-labelledby="projects-page-title">
-          <div className="sizer-page-heading">
-            <div><div className="breadcrumbs"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>Mis proyectos</strong></div><p className="sizer-kicker">SEGUIMIENTO</p><h1 id="projects-page-title">Mis proyectos</h1><p className="sizer-intro">Consulta tus cálculos, revisa su estado y continúa trabajando cuando estén disponibles.</p></div>
-            <button type="button" className="button-reset" onClick={() => { reset(); setActiveSection("sizing"); }}>＋ <span>Nuevo cálculo</span></button>
-          </div>
-          {projects.length === 0 ? <div className="sizer-card projects-empty"><span className="empty-project-icon" aria-hidden="true">▤</span><h2>Aún no tienes proyectos</h2><p>Cuando guardes un cálculo, aparecerá aquí para que puedas consultarlo y continuar.</p><button type="button" className="calculate-button" onClick={() => { reset(); setActiveSection("sizing"); }}>Crear primer cálculo</button></div> : <div className="projects-list" aria-label="Lista de proyectos">
-            {projectActionMessage && <p className="form-success" role="status">{projectActionMessage}</p>}
-          {projects.map((project) => {
-              const simulation = project.latestSimulation;
-              const statusLabel: Record<string, string> = { draft: "Borrador", in_review: "En revisión", needs_review: "En revisión", approved: "Aprobado", rejected: "Requiere ajustes", archived: "Archivado" };
-              const status = simulation?.status ?? project.status;
-              const canContinue = status !== "in_review" && status !== "needs_review";
-              return <article className="project-list-card" key={project.id}>
-                <div className="project-list-main"><div className="project-list-title"><h2>{project.name}</h2><span className={`project-status-chip ${status === "approved" ? "approved" : status === "rejected" ? "attention" : status === "in_review" || status === "needs_review" ? "review" : ""}`}>{statusLabel[status] ?? status.replaceAll("_", " ")}</span></div><p>{project.client.legalName}{project.systemType ? ` · ${systemLabels[project.systemType]}` : ""}</p><div className="project-list-meta"><span>{simulation ? `Versión ${simulation.version}` : "Sin cálculo guardado"}</span><span>Actualizado {new Date(project.updatedAt).toLocaleDateString("es-CO")}</span>{simulation?.panelCount ? <span>{simulation.panelCount} paneles · {Number(simulation.pvKwp ?? 0).toFixed(2)} kWp</span> : null}</div>{status === "rejected" && simulation?.reviewNotes && <p className="project-review-notes"><strong>Observación técnica:</strong> {simulation.reviewNotes}</p>}</div>
-                <div className="project-list-actions" aria-label="Acciones del proyecto"><div className="project-icon-actions"><button type="button" className="project-icon-button" data-tooltip={canContinue ? "Abrir o editar este proyecto" : "Ver el proyecto; está bloqueado durante la revisión"} aria-label={canContinue ? "Abrir o editar proyecto" : "Ver proyecto bloqueado"} onClick={() => { selectProject(project.id); setActiveSection("sizing"); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button>{role === "operator" && <a className="project-icon-button" data-tooltip="Abrir la ficha para imprimir o guardar como PDF" aria-label="Abrir ficha para cliente en PDF" href={`/operator/projects/${project.id}/report`} target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M9 14h6M9 17h6"/></svg></a>}{role === "operator" && <button type="button" className="project-icon-button danger" data-tooltip={simulation?.status === "draft" ? "Eliminar el borrador; se conserva su historial" : "Solo se pueden eliminar borradores no enviados"} aria-label="Eliminar borrador" disabled={simulation?.status !== "draft"} onClick={() => void archiveDraft(project.id, project.name)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg></button>}</div>{!canContinue && <span className="field-hint">Edición disponible después de la revisión.</span>}</div>
-              </article>;
-            })}
-          </div>}
-        </section>}
-        <div className="sizer-content" style={{ display: activeSection === "sizing" ? "contents" : "none" }}>
-        <div className="sizer-page-heading">
-          <div>
-            <div className="breadcrumbs"><span>Herramientas</span><span aria-hidden="true">/</span><strong>Dimensionador solar</strong></div>
-            <p className="sizer-kicker">DISEÑO TÉCNICO</p>
-            <h1>Dimensionador solar</h1>
-            <p className="sizer-intro">Estima la cantidad de paneles a partir del consumo y el recurso solar del proyecto.</p>
-          </div>
-          <button className="button-reset" type="button" onClick={reset}>＋ <span>Nuevo cálculo</span></button>
-        </div>
-
-        {isReviewLocked && <div className="review-lock-banner" role="status"><strong>Versión enviada a revisión</strong><span>Este cálculo está bloqueado para conservar lo enviado. Podrás preparar cambios cuando el revisor responda.</span></div>}
-        <div className="sizer-grid">
-          <fieldset disabled={isReviewLocked} className="input-stack sizer-form-lock">
-          <section className="sizer-card input-card" aria-labelledby="project-input-title">
-            <div className="card-heading">
-              <div className="step-badge">01</div>
-              <div><h2 id="project-input-title">Proyecto y cliente</h2><p>Completa los datos obligatorios del proyecto y del cliente.</p></div>
-            </div>
-
-            <label className="sizer-field project-name-field">
-              <span className="sizer-label">Nombre del proyecto</span>
-              <input className="text-input" required maxLength={200} placeholder="Ej. Bodega La Esperanza" value={projectName} onChange={(event) => setProjectName(event.target.value)} />
-            </label>
-            <div className="project-picker-row">
-              <label className="sizer-field">
-                <span className="sizer-label">Continuar un proyecto</span>
-                <select className="text-input" value={projectId} onChange={(event) => selectProject(event.target.value)}>
-                  <option value="">Nuevo proyecto…</option>
-                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name} · {project.latestSimulation ? `v${project.latestSimulation.version} · ${project.latestSimulation.status}` : project.status}</option>)}
-                </select>
-              </label>
-              {projectId && <button type="button" className="button-reset project-new-button" onClick={reset}>Nuevo</button>}
-            </div>
-            {projects.find((project) => project.id === projectId)?.latestSimulation?.status === "needs_review" && <p className="form-hint-box">Esta versión está en revisión. Podrás preparar una nueva cuando el revisor la apruebe o la devuelva.</p>}
-            {projects.find((project) => project.id === projectId)?.latestSimulation?.status === "rejected" && <p className="form-hint-box">Devuelto por el revisor: {projects.find((project) => project.id === projectId)?.latestSimulation?.reviewNotes || "Revisa las observaciones y guarda una nueva versión."}</p>}
-
-            <div className="form-section-title"><span>Datos del cliente</span><span className="unit-hint">Se guardan con el proyecto</span></div>
-            <label className="sizer-field project-name-field">
-              <span className="sizer-label">Tipo de persona</span>
-              <select className="text-input" required value={legalType} onChange={(event) => { setLegalType(event.target.value as "natural_person" | "legal_entity"); setTaxId(""); setContactName(""); }}>
+    setAnalysisY…2521 tokens truncated…e} onChange={(event) => { setLegalType(event.target.value as "natural_person" | "legal_entity"); setTaxId(""); setContactName(""); }}>
                 <option value="natural_person">Persona natural</option>
                 <option value="legal_entity">Persona jurídica</option>
               </select>
@@ -549,9 +461,10 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
           <section className="results-column" aria-labelledby="result-title">
             <div className="result-card">
               <div className="result-card-heading">
-                <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculated && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
-                <span className={`result-status ${hasCalculated ? "" : "stale"}`}><span /> {hasCalculated ? "Actualizado" : "Recalcular"}</span>
+                <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculatedResult && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
+                <span className={`result-status ${hasCalculatedResult ? "" : "stale"}`}><span /> {hasCalculatedResult ? "Actualizado" : monthlyUse > 0 && sunHours > 0 ? "Calcula para ver" : "Datos pendientes"}</span>
               </div>
+              {hasCalculatedResult ? <>
               <div className="system-summary"><span>{systemLabels[calculationSnapshot.system]}</span><span>Panel de {calculationSnapshot.panelWatts} Wp</span></div>
               <div className="panel-count">
                 <span className="panel-count-label">Cantidad recomendada de paneles</span>
@@ -581,13 +494,16 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
                 </>}
                 <div className="result-note"><span aria-hidden="true">ⓘ</span><p>{roi.hasFinancialProjection ? `Proyección preliminar con ${calculationSnapshot.selfConsumptionPercent}% de autoconsumo, tarifa creciendo ${calculationSnapshot.tariffEscalationPercent}% anual, degradación ${calculationSnapshot.degradationPercent}% y O&M indicado. No incluye financiación ni impuestos.` : "ROI simple: asume que la generación desplaza consumo hasta el consumo mensual ingresado. Abre los datos adicionales e indica autoconsumo para estimar excedentes y flujo de caja."}</p></div>
               </> : <p className="field-hint">Completa tarifa e inversión total. Para proyección avanzada, indica también el autoconsumo estimado.</p>}
+              </> : <div className="result-empty" role="status"><strong>El resultado aparecerá aquí</strong><p>Ingresa el consumo mensual y las horas sol pico. Luego pulsa «Calcular dimensionamiento».</p></div>}
             </div>
 
             <div className="method-card">
               <h3>¿Cómo se calcula?</h3>
               <p>Potencia FV = consumo diario ÷ horas sol pico ÷ rendimiento del sistema. La cantidad se redondea al siguiente panel completo.</p>
-              <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - calculationSnapshot.lossPercent)}%</strong></div>
-              <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
+              {hasCalculatedResult ? <>
+                <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - calculationSnapshot.lossPercent)}%</strong></div>
+                <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
+              </> : <p className="field-hint">Las variables del cálculo se mostrarán después de calcular.</p>}
             </div>
           </section>
         </div>
