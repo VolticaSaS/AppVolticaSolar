@@ -7,7 +7,7 @@ import { apiError, invalidInput } from "@/lib/http/api";
 import { writeAuditEvent } from "@/lib/audit";
 import { getPrisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/security/password";
-import { isAppRole } from "@/lib/auth/session";
+import { normalizeAppRole } from "@/lib/rbac/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +53,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Correo o contraseña incorrectos." }, { status: 401 });
     }
 
+    const role = normalizeAppRole(user.role);
     const now = new Date();
     const isLocked = user.lockedUntil !== null && user.lockedUntil > now;
     const lockoutExpired = user.lockedUntil !== null && user.lockedUntil <= now;
     const passwordIsValid = await verifyPassword(user.passwordHash, parsed.data.password);
-    if (!user.isActive || isLocked || !passwordIsValid || !isAppRole(user.role)) {
+    if (!user.isActive || isLocked || !passwordIsValid || !role) {
       if (user.isActive && !isLocked && !passwordIsValid) {
         const nextAttempts = (lockoutExpired ? 0 : user.failedLoginAttempts) + 1;
         await prisma.appUser.update({
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
     await writeAuditEvent({ actorId: user.id, action: "auth.login", entityType: "app_user", entityId: user.id });
     await createSession(user.id);
     return NextResponse.json({
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword },
+      user: { id: user.id, fullName: user.fullName, email: user.email, role, mustChangePassword: user.mustChangePassword },
     });
   } catch (error) {
     return apiError(error);

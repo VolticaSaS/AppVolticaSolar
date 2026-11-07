@@ -40,7 +40,10 @@ npm start
 - `prisma/migrations/20261012110000_spanish_physical_identifiers` renombra de forma incremental las tablas, columnas, índices y restricciones físicas a la convención española; conserva la historia v1/v2 y no elimina filas.
 - `prisma/migrations/20261014120000_add_reviewer_role` agrega el perfil de revisor y su asignación a proyectos sin cambiar ni eliminar filas.
 - Costos de adquisición y análisis financieros viven en `internal`; las respuestas de operador usan DTOs con campos permitidos explícitos.
-- El perfil operativo consulta proyectos asignados y precio total COP autorizado. Ingeniería prepara cálculos; el revisor técnico revisa asignaciones separadas. Ninguno accede a costos ni márgenes. Administración gestiona usuarios y finanzas.
+- **Operativo:** crea proyectos y simulaciones, consulta sus proyectos y únicamente el precio total autorizado en COP. No consulta costos, proveedores, márgenes ni fórmulas internas.
+- **Revisor técnico:** valida y aprueba cálculos técnicos asignados, y consulta el precio estimado autorizado. No accede a costos ni márgenes internos.
+- **Administrador:** gestiona usuarios, proyectos, catálogo, configuración, auditoría y finanzas internas.
+- La aplicación expone solo estos tres perfiles. Las cuentas y asignaciones antiguas con rol `engineer` se normalizan temporalmente como revisor técnico; una migración incremental pendiente las convierte en `reviewer` preservando datos.
 - La auditoría registra actor, acción y entidad; no incluye cuerpos de solicitudes ni valores financieros.
 - Contraseñas locales usan Argon2id. Las sesiones usan tokens aleatorios opacos almacenando solo su hash, cookie HttpOnly, SameSite=Lax, Secure en producción y caducidad de ocho horas.
 - `npm run db:status` y `npm run db:deploy` son comandos manuales con barreras de entorno y base; las migraciones nunca se ejecutan al iniciar Next.js.
@@ -68,7 +71,6 @@ Para crear una cuenta operativa en Development, define `OPERATOR_EMAIL`, `OPERAT
 ## Flujo de proyectos y versiones
 
 - **Operativo:** crea el proyecto, registra los datos del cliente y del consumo, ejecuta una simulación y la envía a revisión. Puede volver a abrir sus proyectos y preparar una nueva versión si la anterior fue devuelta o aprobada.
-- **Ingeniero:** puede trabajar en proyectos que le asignen y preparar ajustes técnicos. No tiene permisos financieros ni puede aprobar su propio cálculo.
 - **Revisor técnico:** recibe una versión asignada, consulta únicamente datos del diseño y la aprueba o la devuelve con observaciones. Su aprobación marca esa versión como final.
 - **Administrador:** gestiona usuarios, consulta todos los proyectos y sus datos comerciales/financieros, y asigna el responsable operativo.
 
@@ -88,7 +90,7 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
 
 ### Base nueva
 
-1. Revisa las cinco migraciones SQL y crea un respaldo restaurable de PostgreSQL Development.
+1. Revisa las migraciones SQL y crea un respaldo restaurable de PostgreSQL Development.
 2. Abre una shell en la instancia desplegada de `AppVolticaSolar` en Development (requiere Railway CLI/SSH habilitado; el servicio PostgreSQL sigue privado). Desde una terminal autenticada y vinculada al proyecto, ejecuta primero:
 
    ```bash
@@ -102,14 +104,16 @@ Las migraciones de este repositorio son versionadas y se ejecutan exclusivamente
    railway ssh --environment Development --service AppVolticaSolar -- npm run db:deploy
    ```
 
-   El wrapper vuelve a consultar `current_database()` antes de ejecutar Prisma, muestra el resultado de `migrate deploy` sin mostrar la URL, y al final confirma las tablas de `public`/`internal` y las cinco entradas terminadas de `_prisma_migrations`. No está configurado en el inicio ni en el comando normal de despliegue.
+   El wrapper vuelve a consultar `current_database()` antes de ejecutar Prisma, muestra el resultado de `migrate deploy` sin mostrar la URL, y al final confirma las tablas de `public`/`internal` y el historial de `_prisma_migrations`. No está configurado en el inicio ni en el comando normal de despliegue.
 4. Si todo termina correctamente, conserva el log como registro y luego realiza el bootstrap administrativo solo mediante su procedimiento separado y seguro.
+
+La migración `20261107120000_consolidate_engineer_into_reviewer` convierte en sitio los perfiles y asignaciones `engineer` a `reviewer`, actualiza las restricciones para aceptar solo `admin`, `operator` y `reviewer`, y conserva usuarios, proyectos e historial. Está preparada, pero no se ejecuta con este cambio; requiere revisión y ejecución manual aprobada en el entorno correspondiente.
 
 ### Base con v1 ya instalada
 
 1. Confirma que la estructura y los datos corresponden exactamente a `prisma/legacy/schema-v1.prisma` y al SQL v1 de referencia. El wrapper se detiene si encuentra tablas de negocio sin `_prisma_migrations`; no se debe intentar ejecutar la baseline sobre tablas existentes. Respalda la base y ensaya la actualización sobre una copia restaurada. La migración v2 conserva el análisis financiero histórico en el esquema interno, copia los costos existentes al esquema `internal` y convierte potencias de W a kW. El costo de catálogo v1 se transfiere a `internal.equipment_costs` antes de retirar su columna pública. La migración v3 renombra las tablas/columnas v2 al español, la v4 amplía los roles para revisión técnica y la v5 agrega identidad legal y dirección de contacto de clientes.
 2. Si v1 se creó previamente sin historial Prisma, el wrapper detendrá la operación al detectar tablas sin historial. No ejecutes directamente `prisma migrate resolve`: primero solicita una reconciliación revisada con el DBA, valida que todas las tablas, columnas y restricciones coinciden con la baseline en una sesión conectada a `db_voltica_solar`, y registra la baseline solo después de esa comprobación. `migrate resolve` registra historial y no ejecuta el archivo baseline.
-3. Si ya se aplicó v3, `db:status` mostrará las migraciones incrementales v4 y v5 pendientes; después de revisar el estado, `db:deploy` aplicará esos ajustes. Si ya se aplicó v4, solo debe aparecer v5 pendiente. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
+3. Si ya se aplicó v3, `db:status` mostrará las migraciones incrementales posteriores pendientes; después de revisar el estado, `db:deploy` las aplicará. Si existe historial parcial, tablas creadas con SQL manual u otra diferencia, detente y reconcilia el historial/esquema con revisión humana antes de `db:deploy`. No marques migraciones como aplicadas sin verificar el estado real.
 
 `db:deploy` altera la base indicada por `DATABASE_URL`. El guard también requiere las variables Railway `RAILWAY_ENVIRONMENT_NAME=Development` y `RAILWAY_SERVICE_NAME=AppVolticaSolar`, además de que PostgreSQL confirme el nombre de base correcto. No ejecutes este comando desde Production. La compilación y los comandos de inicio normales no despliegan migraciones automáticamente.
 

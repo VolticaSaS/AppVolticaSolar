@@ -1,30 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { assertPermission, AuthorizationError, canAccessProject, hasPermission } from "@/lib/rbac/policy";
+import { assertPermission, AuthorizationError, canAccessProject, hasPermission, normalizeAppRole } from "@/lib/rbac/policy";
 import { toPublicEstimateDto } from "@/lib/data/public-estimate-dto";
 
 describe("autorización por rol", () => {
   it("permite finanzas y exportación interna solo a ADMIN", () => {
     expect(hasPermission("admin", "finance:read")).toBe(true);
     expect(() => assertPermission("operator", "finance:read")).toThrow(AuthorizationError);
-    expect(() => assertPermission("engineer", "finance:read")).toThrow(AuthorizationError);
     expect(() => assertPermission("reviewer", "finance:read")).toThrow(AuthorizationError);
     expect(() => assertPermission("operator", "export:internal")).toThrow(AuthorizationError);
-    expect(() => assertPermission("engineer", "export:internal")).toThrow(AuthorizationError);
   });
 
   it("solo revisor técnico aprueba simulaciones y operativo no administra usuarios", () => {
     expect(hasPermission("reviewer", "simulation:review")).toBe(true);
-    expect(hasPermission("engineer", "simulation:review")).toBe(false);
     expect(hasPermission("reviewer", "simulation:write")).toBe(false);
     expect(hasPermission("operator", "simulation:review")).toBe(false);
     expect(() => assertPermission("operator", "user:manage")).toThrow(AuthorizationError);
+  });
+
+  it("normaliza cuentas engineer existentes como revisores sin conservar un cuarto perfil", () => {
+    expect(normalizeAppRole("engineer")).toBe("reviewer");
+    expect(normalizeAppRole("reviewer")).toBe("reviewer");
+    expect(normalizeAppRole("unknown")).toBeNull();
+    expect(canAccessProject("reviewer", "member", { ownerId: null, memberships: [{ userId: "member", accessRole: "engineer" }] })).toBe(true);
   });
 
   it("rechaza proyectos sin asignación", () => {
     const project = { ownerId: "owner", memberships: [{ userId: "member", accessRole: "operator" }] };
     expect(canAccessProject("operator", "stranger", project)).toBe(false);
     expect(canAccessProject("operator", "member", project)).toBe(true);
-    expect(canAccessProject("engineer", "member", project)).toBe(false);
     expect(canAccessProject("reviewer", "member", { ...project, memberships: [{ userId: "member", accessRole: "reviewer" }] })).toBe(true);
     expect(canAccessProject("admin", "stranger", project)).toBe(true);
   });

@@ -74,17 +74,17 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
-    const actor = await requireApiRole(["engineer", "operator"]);
+    const actor = await requireApiRole(["operator"]);
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return invalidInput();
     const input = parsed.data;
     if (input.submitForReview && !input.projectId) {
       return NextResponse.json({ error: "Guarda primero una versión como borrador antes de enviarla a revisión." }, { status: 409 });
     }
-    const [reviewer, engineer] = await Promise.all([
-      getPrisma().appUser.findFirst({ where: { role: "reviewer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
-      getPrisma().appUser.findFirst({ where: { role: "engineer", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } }),
-    ]);
+    const reviewer = await getPrisma().appUser.findFirst({
+      where: { role: { in: ["reviewer", "engineer"] }, isActive: true },
+      orderBy: { createdAt: "asc" }, select: { id: true },
+    });
     // Save the operator's calculation even when no reviewer exists; it remains a draft until review can be assigned.
     const workflowStatus = input.submitForReview && reviewer ? "needs_review" : "draft";
 
@@ -176,11 +176,6 @@ export async function POST(request: Request) {
           create: { projectId: existingProject.id, userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id },
           update: {},
         });
-        if (engineer) await tx.projectMembership.upsert({
-          where: { projectId_userId: { projectId: existingProject.id, userId: engineer.id } },
-          create: { projectId: existingProject.id, userId: engineer.id, accessRole: "engineer", assignedBy: actor.id },
-          update: {},
-        });
         await tx.energyConsumption.upsert({
           where: { projectId_periodMonth: { projectId: existingProject.id, periodMonth: month } },
           create: { projectId: existingProject.id, periodMonth: month, energyKwh: input.energyKwhMonth, source: "manual" },
@@ -196,7 +191,6 @@ export async function POST(request: Request) {
           clientId: client.id, name: input.projectName, address: input.sameInstallationAddress ? null : input.installationAddress || null, systemType: input.systemType, status: workflowStatus === "needs_review" ? "in_review" : "draft", ownerId: actor.id,
           memberships: { createMany: { data: [
             ...(workflowStatus === "needs_review" && reviewer ? [{ userId: reviewer.id, accessRole: "reviewer", assignedBy: actor.id }] : []),
-            ...(engineer ? [{ userId: engineer.id, accessRole: "engineer", assignedBy: actor.id }] : []),
           ] } },
           energyConsumption: { create: { periodMonth: month, energyKwh: input.energyKwhMonth, source: "manual" } },
           solarResourceInputs: { create: { source: "manual", peakSunHoursDay: input.peakSunHoursDay, retrievedAt: now, assumptions: { capture: "user_input" } as Prisma.InputJsonObject } },

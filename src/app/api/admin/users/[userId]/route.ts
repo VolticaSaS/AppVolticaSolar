@@ -4,13 +4,14 @@ import { assertSameOrigin, requireApiRole } from "@/lib/auth/guards";
 import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { AuthorizationError } from "@/lib/rbac/policy";
+import { normalizeAppRole } from "@/lib/rbac/policy";
 
 export const dynamic = "force-dynamic";
 
 const updateUserSchema = z.object({
   fullName: z.string().trim().min(2).max(160).optional(),
   email: z.string().trim().email().max(255).optional(),
-  role: z.enum(["admin", "operator", "engineer", "reviewer"]).optional(),
+  role: z.enum(["admin", "operator", "reviewer"]).optional(),
   isActive: z.boolean().optional(),
 }).refine((value) => Object.values(value).some((item) => item !== undefined));
 
@@ -27,7 +28,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
       select: { id: true, role: true, isActive: true },
     });
     if (!current) return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
-    if (actor.id === userId && (parsed.data.isActive === false || (parsed.data.role !== undefined && parsed.data.role !== current.role))) {
+    if (actor.id === userId && (parsed.data.isActive === false || (parsed.data.role !== undefined && parsed.data.role !== normalizeAppRole(current.role)))) {
       throw new AuthorizationError();
     }
     const email = parsed.data.email?.toLowerCase();
@@ -54,7 +55,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
       });
       return updated;
     });
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: { ...user, role: normalizeAppRole(user.role) } });
   } catch (error) {
     return apiError(error);
   }

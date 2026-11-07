@@ -5,13 +5,14 @@ import { getPrisma } from "@/lib/prisma";
 import { apiError, invalidInput } from "@/lib/http/api";
 import { hashPassword } from "@/lib/security/password";
 import { generateTemporaryPassword } from "@/lib/security/temporary-password";
+import { normalizeAppRole } from "@/lib/rbac/policy";
 
 export const dynamic = "force-dynamic";
 
 const createUserSchema = z.object({
   fullName: z.string().trim().min(2).max(160),
   email: z.string().trim().email().max(255),
-  role: z.enum(["admin", "operator", "engineer", "reviewer"]),
+  role: z.enum(["admin", "operator", "reviewer"]),
 });
 
 export async function GET() {
@@ -21,7 +22,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       select: { id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true, lastLoginAt: true },
     });
-    return NextResponse.json({ users });
+    return NextResponse.json({ users: users.map((user) => ({ ...user, role: normalizeAppRole(user.role) })) });
   } catch (error) {
     return apiError(error);
   }
