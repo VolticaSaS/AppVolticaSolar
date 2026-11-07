@@ -8,6 +8,7 @@ const roleNames = { admin: "Administrador", operator: "Operativo", engineer: "In
 export async function SiteHeader() {
   const user = await getCurrentUser();
   const workHref = user?.role === "admin" ? "/admin" : user?.role === "reviewer" ? "/reviewer" : "/";
+  const workLabel = user?.role === "admin" ? "Consola de administración" : user?.role === "reviewer" ? "Revisión técnica" : "Mi espacio";
   return (
     <header className="app-header">
       <Link className="app-brand" href="/" aria-label="Voltica Solar, dimensionador">
@@ -16,8 +17,8 @@ export async function SiteHeader() {
         <span className="brand-product">Solar <small>DIMENSIONAMIENTO</small></span>
       </Link>
       <div className="header-tools">
-        <span className="environment-pill"><span /> {user ? roleNames[user.role] : "Herramienta técnica"}</span>
-        {user ? <><Link className="login-link" href={workHref}>Mi espacio</Link><LogoutButton /></> : <Link className="login-link" href="/login">Ingresar <span aria-hidden="true">↗</span></Link>}
+        <span className="environment-pill"><span /> {user ? `${user.fullName} · ${roleNames[user.role]}` : "Herramienta técnica"}</span>
+        {user ? <><Link className="login-link" href={workHref}>{workLabel}</Link><Link className="login-link" href="/change-password">Cambiar contraseña</Link><LogoutButton /></> : <Link className="login-link" href="/login">Ingresar <span aria-hidden="true">↗</span></Link>}
       </div>
     </header>
   );

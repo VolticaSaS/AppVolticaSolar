@@ -17,7 +17,15 @@ export function LoginForm() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No fue posible iniciar sesión.");
-      router.push("/"); router.refresh();
+      const user = result.user as { role: string; mustChangePassword: boolean };
+      const destination = user.mustChangePassword
+        ? "/change-password"
+        : user.role === "admin"
+          ? "/admin"
+          : user.role === "reviewer"
+            ? "/reviewer"
+            : "/";
+      router.push(destination); router.refresh();
     } catch (err) { setError(err instanceof Error ? err.message : "No fue posible iniciar sesión."); }
     finally { setBusy(false); }
   }
