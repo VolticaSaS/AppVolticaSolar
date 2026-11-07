@@ -36,7 +36,7 @@ export function ReviewQueue() {
   }
   return <div className="mx-auto grid max-w-6xl gap-6 px-6 py-10 lg:grid-cols-[.8fr_1.2fr]">
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
-      <p className="text-xs font-bold uppercase tracking-widest text-[#005000]">Ingeniería · control de calidad</p>
+      <p className="text-xs font-bold uppercase tracking-widest text-[#005000]">Revisión técnica · control de calidad</p>
       <h1 className="mt-2 text-3xl font-semibold">Revisión técnica</h1>
       <p className="mt-2 text-sm text-slate-600">Aprueba o devuelve los cálculos asignados. No se muestran datos de costos.</p>
       <h2 className="mt-7 text-sm font-semibold">Pendientes ({reviews.length})</h2>

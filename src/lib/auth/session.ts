@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import type { AppRole } from "@/lib/rbac/policy";
+import { normalizeAppRole, type AppRole } from "@/lib/rbac/policy";
 import { getPrisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "voltica_session";
@@ -52,13 +52,14 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
       },
     },
   });
-  if (!session || !isAppRole(session.user.role)) return null;
+  const role = session ? normalizeAppRole(session.user.role) : null;
+  if (!session || !role) return null;
 
   return {
     id: session.user.id,
     fullName: session.user.fullName,
     email: session.user.email,
-    role: session.user.role,
+    role,
     mustChangePassword: session.user.mustChangePassword,
   };
 }
@@ -70,8 +71,4 @@ export async function revokeCurrentSession(): Promise<void> {
     await getPrisma().authSession.deleteMany({ where: { tokenHash: digest(token) } });
   }
   cookieStore.delete(SESSION_COOKIE);
-}
-
-export function isAppRole(value: string): value is AppRole {
-  return value === "admin" || value === "operator" || value === "engineer" || value === "reviewer";
 }

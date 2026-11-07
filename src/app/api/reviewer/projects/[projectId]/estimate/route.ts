@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
-    const user = await requireApiRole(["engineer"]);
+    const user = await requireApiRole(["reviewer"]);
     const { projectId } = await context.params;
     await requireProjectAccess(user, projectId);
     const estimate = await findLatestPublicEstimate(projectId);

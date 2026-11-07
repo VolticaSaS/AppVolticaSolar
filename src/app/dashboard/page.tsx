@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import { requirePageRole } from "@/lib/auth/guards";
 
 export default async function DashboardPage() {
-  const user = await requirePageRole(["admin", "operator", "engineer", "reviewer"]);
+  const user = await requirePageRole(["admin", "operator", "reviewer"]);
   if (user.role === "admin") redirect("/admin");
   if (user.role === "reviewer") redirect("/reviewer");
-  if (user.role === "operator" || user.role === "engineer") redirect("/");
+  if (user.role === "operator") redirect("/");
   const copy = { title: "Panel de trabajo", detail: "Selecciona una tarea para continuar." };
   return <main className="mx-auto max-w-6xl px-6 py-16">
     <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#005000]">Panel de trabajo · {user.role}</p>

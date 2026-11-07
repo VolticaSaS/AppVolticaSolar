@@ -61,7 +61,9 @@ export async function requireProjectAccess(user: AuthenticatedUser, projectId: s
       id: projectId,
       OR: [
         { ownerId: user.id },
-        { memberships: { some: { userId: user.id, accessRole: user.role } } },
+        // Keep existing engineer assignments usable until the role consolidation
+        // migration is applied. Sessions already expose these accounts as reviewers.
+        { memberships: { some: { userId: user.id, accessRole: user.role === "reviewer" ? { in: ["reviewer", "engineer"] } : user.role } } },
       ],
     },
     select: { id: true },

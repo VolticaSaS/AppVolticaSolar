@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await requireApiRole(["operator", "engineer"]);
+    const user = await requireApiRole(["operator"]);
     const projects = await getPrisma().project.findMany({
       where: {
         status: { not: "archived" },

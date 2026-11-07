@@ -3,7 +3,7 @@ import Image from "next/image";
 import { getCurrentUser } from "@/lib/auth/session";
 import { LogoutButton } from "@/features/auth/components/logout-button";
 
-const roleNames = { admin: "Administrador", operator: "Operativo", engineer: "Ingeniero", reviewer: "Revisor técnico" } as const;
+const roleNames = { admin: "Administrador", operator: "Operativo", reviewer: "Revisor técnico" } as const;
 
 export async function SiteHeader() {
   const user = await getCurrentUser();

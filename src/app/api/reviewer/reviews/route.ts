@@ -15,7 +15,7 @@ export async function GET() {
         project: {
           OR: [
             { ownerId: user.id },
-            { memberships: { some: { userId: user.id, accessRole: "reviewer" } } },
+            { memberships: { some: { userId: user.id, accessRole: { in: ["reviewer", "engineer"] } } } },
           ],
         },
       },

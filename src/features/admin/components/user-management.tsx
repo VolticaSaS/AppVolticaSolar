@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 
-type Role = "admin" | "operator" | "engineer" | "reviewer";
+type Role = "admin" | "operator" | "reviewer";
 type User = {
   id: string;
   fullName: string;
@@ -19,7 +19,6 @@ type UserDraft = { fullName: string; email: string; role: Role };
 const roleLabels: Record<Role, string> = {
   admin: "Administrador",
   operator: "Operativo",
-  engineer: "Ingeniero",
   reviewer: "Revisor técnico",
 };
 
@@ -202,7 +201,6 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
         {[
           ["Administrador", "Gestiona usuarios, catálogos, precios, costos y auditoría."],
           ["Operativo", "Crea proyectos, prepara simulaciones y consulta el precio total autorizado."],
-          ["Ingeniero", "Valida el dimensionamiento y sus supuestos técnicos; no ve costos ni márgenes."],
           ["Revisor técnico", "Aprueba una versión final o la devuelve con observaciones; no ve costos ni márgenes."],
         ].map(([title, detail]) => (
           <div key={title} className="rounded-xl border border-green-100 bg-white p-4">
