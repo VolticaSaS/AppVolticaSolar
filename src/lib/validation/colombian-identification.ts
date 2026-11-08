@@ -9,14 +9,17 @@ export function isValidColombianIdentification(value: string, legalType: LegalTy
   const digits = normalizeIdentification(value);
   if (!/^\d+$/.test(digits)) return false;
 
-  if (legalType === "natural_person") return digits.length >= 6 && digits.length <= 10;
-  if (digits.length !== 10) return false;
+  if (legalType === "natural_person") return digits.length >= 6 && digits.length <= 11;
 
-  const weights = [71, 67, 59, 53, 47, 43, 41, 37, 29];
-  const sum = weights.reduce((total, weight, index) => total + Number(digits[index]) * weight, 0);
+  const nit = digits.slice(0, -1);
+  if (nit.length < 9 || nit.length > 15) return false;
+
+  const weights = [71, 67, 59, 53, 47, 43, 41, 37, 29, 23, 19, 17, 13, 7, 3];
+  const firstWeight = weights.length - nit.length;
+  const sum = [...nit].reduce((total, digit, index) => total + Number(digit) * weights[firstWeight + index], 0);
   const remainder = sum % 11;
   const checkDigit = remainder > 1 ? 11 - remainder : remainder;
-  return Number(digits[9]) === checkDigit;
+  return Number(digits.at(-1)) === checkDigit;
 }
 
 export function isValidPhone(value: string): boolean {
