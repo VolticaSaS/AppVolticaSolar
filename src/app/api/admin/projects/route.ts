@@ -10,12 +10,16 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await requireApiRole(["admin"]);
-    const [rows, operators] = await Promise.all([
+    const [rows, operators, reviewers] = await Promise.all([
       getPrisma().project.findMany({
         orderBy: { updatedAt: "desc" },
         select: {
           id: true, name: true, status: true, systemType: true, address: true, createdAt: true, updatedAt: true,
           owner: { select: { id: true, fullName: true, email: true } },
+          memberships: {
+            where: { accessRole: "reviewer" },
+            select: { user: { select: { id: true, fullName: true, email: true } } },
+          },
           client: { select: { legalName: true, legalType: true, taxIdType: true, taxId: true, address: true, contactName: true, contactPhone: true, contactEmail: true } },
           simulations: { orderBy: { version: "desc" }, take: 1, select: {
             id: true, version: true, status: true, resultPanelCount: true, reviewNotes: true,
@@ -25,11 +29,12 @@ export async function GET() {
         },
       }),
       getPrisma().appUser.findMany({ where: { role: "operator", isActive: true }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, email: true } }),
+      getPrisma().appUser.findMany({ where: { role: "reviewer", isActive: true }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, email: true } }),
     ]);
     const projects = rows.map((project) => ({
       id: project.id, name: project.name, status: project.status, systemType: project.systemType,
       address: project.address, createdAt: project.createdAt.toISOString(), updatedAt: project.updatedAt.toISOString(),
-      owner: project.owner, client: project.client,
+      owner: project.owner, reviewer: project.memberships[0]?.user ?? null, client: project.client,
       latestSimulation: project.simulations[0] ? {
         id: project.simulations[0].id, version: project.simulations[0].version,
         status: project.simulations[0].status, panelCount: project.simulations[0].resultPanelCount,
@@ -56,11 +61,15 @@ export async function GET() {
         } : null,
       } : null,
     }));
-    return NextResponse.json({ projects, operators });
+    return NextResponse.json({ projects, operators, reviewers });
   } catch (error) { return apiError(error); }
 }
 
-const assignSchema = z.object({ projectId: z.string().uuid(), ownerId: z.string().uuid().nullable() });
+const assignSchema = z.object({
+  projectId: z.string().uuid(),
+  ownerId: z.string().uuid().nullable().optional(),
+  reviewerId: z.string().uuid().nullable().optional(),
+}).refine((value) => (value.ownerId !== undefined) !== (value.reviewerId !== undefined));
 
 export async function PATCH(request: Request) {
   try {
@@ -68,15 +77,31 @@ export async function PATCH(request: Request) {
     const actor = await requireApiRole(["admin"]);
     const parsed = assignSchema.safeParse(await request.json());
     if (!parsed.success) return invalidInput();
-    const { projectId, ownerId } = parsed.data;
+    const { projectId, ownerId, reviewerId } = parsed.data;
     const project = await getPrisma().project.findUnique({ where: { id: projectId }, select: { id: true } });
     if (!project) throw new ResourceNotFoundError();
-    if (ownerId) {
-      const operator = await getPrisma().appUser.findFirst({ where: { id: ownerId, role: "operator", isActive: true }, select: { id: true } });
-      if (!operator) return NextResponse.json({ error: "El responsable debe ser una cuenta operativa activa." }, { status: 400 });
+
+    if (ownerId !== undefined) {
+      if (ownerId) {
+        const operator = await getPrisma().appUser.findFirst({ where: { id: ownerId, role: "operator", isActive: true }, select: { id: true } });
+        if (!operator) return NextResponse.json({ error: "El responsable debe ser una cuenta operativa activa." }, { status: 400 });
+      }
+      await getPrisma().project.update({ where: { id: projectId }, data: { ownerId, updatedAt: new Date() } });
+      await writeAuditEvent({ actorId: actor.id, action: "project.assign_operator", entityType: "project", entityId: projectId });
+      return NextResponse.json({ ok: true });
     }
-    await getPrisma().project.update({ where: { id: projectId }, data: { ownerId, updatedAt: new Date() } });
-    await writeAuditEvent({ actorId: actor.id, action: "project.assign_operator", entityType: "project", entityId: projectId });
+
+    if (reviewerId) {
+      const reviewer = await getPrisma().appUser.findFirst({ where: { id: reviewerId, role: "reviewer", isActive: true }, select: { id: true } });
+      if (!reviewer) return NextResponse.json({ error: "El revisor debe ser una cuenta revisora activa." }, { status: 400 });
+    }
+    await getPrisma().$transaction(async (tx) => {
+      await tx.projectMembership.deleteMany({ where: { projectId, accessRole: "reviewer" } });
+      if (reviewerId) {
+        await tx.projectMembership.create({ data: { projectId, userId: reviewerId, accessRole: "reviewer", assignedBy: actor.id } });
+      }
+    });
+    await writeAuditEvent({ actorId: actor.id, action: reviewerId ? "project.assign_reviewer" : "project.unassign_reviewer", entityType: "project", entityId: projectId });
     return NextResponse.json({ ok: true });
   } catch (error) { return apiError(error); }
 }
