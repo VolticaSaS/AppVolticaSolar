@@ -79,8 +79,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [installationAddress, setInstallationAddress] = useState("");
   const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
   const [system, setSystem] = useState<SystemType>("on_grid");
-  const [monthlyUse, setMonthlyUse] = useState(0);
-  const [sunHours, setSunHours] = useState(0);
+  const [monthlyUse, setMonthlyUse] = useState(600);
+  const [sunHours, setSunHours] = useState(4.5);
   const [panelWatts, setPanelWatts] = useState(585);
   const [lossPercent, setLossPercent] = useState(20);
   const [autonomyDays, setAutonomyDays] = useState(1);
@@ -265,7 +265,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     if (legalType === "natural_person" && !isValidPersonName(legalName)) { setError("El nombre debe usar solo letras, espacios, apóstrofes o guiones."); return; }
     if (legalType === "legal_entity" && !isValidBusinessName(legalName)) { setError("Escribe una razón social válida."); return; }
     if (!isValidColombianIdentification(taxId, legalType)) {
-      setError(legalType === "natural_person" ? "La cédula debe tener entre 6 y 10 dígitos." : "El NIT debe tener 9 dígitos y un dígito de verificación válido.");
+      setError(legalType === "natural_person" ? "La cédula debe tener entre 6 y 11 dígitos." : "El NIT debe incluir entre 9 y 15 dígitos y un DV válido; ejemplo: 900123456-8.");
       return;
     }
     if (legalType === "legal_entity" && !isValidPersonName(contactName)) { setError("El contacto responsable debe tener un nombre válido, usando solo letras."); return; }
@@ -323,8 +323,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setInstallationAddress("");
     setSameInstallationAddress(true);
     setSystem("on_grid");
-    setMonthlyUse(0);
-    setSunHours(0);
+    setMonthlyUse(600);
+    setSunHours(4.5);
     setPanelWatts(585);
     setLossPercent(20);
     setAutonomyDays(1);
@@ -443,8 +443,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
             </label>
             <label className="sizer-field project-name-field">
               <span className="sizer-label">{legalType === "natural_person" ? "Cédula" : "NIT"}</span>
-              <input className="text-input" required inputMode="numeric" autoComplete="off" placeholder={legalType === "natural_person" ? "Número de identificación" : "Ej. 900123456-3"} value={taxId} onChange={(event) => setTaxId(event.target.value.replace(/[^\d.\-]/g, ""))} aria-describedby="tax-id-hint" />
-              <span className="field-hint" id="tax-id-hint">{legalType === "natural_person" ? "De 6 a 10 dígitos." : "9 dígitos más el dígito de verificación; se valida automáticamente."}</span>
+              <input className="text-input" required inputMode="numeric" autoComplete="off" placeholder={legalType === "natural_person" ? "Número de identificación" : "Ej. 900123456-8"} value={taxId} onChange={(event) => setTaxId(event.target.value.replace(/[^\d.\-]/g, ""))} aria-describedby="tax-id-hint" />
+              <span className="field-hint" id="tax-id-hint">{legalType === "natural_person" ? "De 6 a 11 dígitos." : "NIT de 9 a 15 dígitos, guion y DV. Ejemplo: 900123456-8."}</span>
             </label>
             {legalType === "legal_entity" && <label className="sizer-field project-name-field">
               <span className="sizer-label">Persona de contacto responsable</span>
