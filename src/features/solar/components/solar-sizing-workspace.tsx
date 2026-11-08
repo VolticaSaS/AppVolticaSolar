@@ -86,21 +86,21 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [sunHours, setSunHours] = useState(0);
   const [panelWatts, setPanelWatts] = useState(0);
   const [lossPercent, setLossPercent] = useState(20);
-  const [autonomyDays, setAutonomyDays] = useState(1);
+  const [autonomyDays, setAutonomyDays] = useState(0);
   const [energyRateCopKwh, setEnergyRateCopKwh] = useState(0);
   const [estimatedInvestmentCop, setEstimatedInvestmentCop] = useState(0);
   const [selfConsumptionPercent, setSelfConsumptionPercent] = useState(0);
   const [exportRateCopKwh, setExportRateCopKwh] = useState(0);
   const [tariffEscalationPercent, setTariffEscalationPercent] = useState(0);
-  const [degradationPercent, setDegradationPercent] = useState(0.5);
+  const [degradationPercent, setDegradationPercent] = useState(0);
   const [annualMaintenanceCop, setAnnualMaintenanceCop] = useState(0);
-  const [analysisYears, setAnalysisYears] = useState(20);
+  const [analysisYears, setAnalysisYears] = useState(0);
   const [discountRatePercent, setDiscountRatePercent] = useState(0);
   const [municipality, setMunicipality] = useState("");
   const [roofOrientation, setRoofOrientation] = useState("sur");
-  const [roofTiltDegrees, setRoofTiltDegrees] = useState(10);
+  const [roofTiltDegrees, setRoofTiltDegrees] = useState(0);
   const [shadingPercent, setShadingPercent] = useState(0);
-  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 0, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 0, lossPercent: 20, autonomyDays: 0, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0, annualMaintenanceCop: 0, analysisYears: 0, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 0, shadingPercent: 0 });
   const [hasCalculated, setHasCalculated] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -240,7 +240,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
       sunHours <= 0 || sunHours > 10 ||
       panelWatts <= 0 || panelWatts > 1_000 ||
       lossPercent < 0 || lossPercent >= 60 ||
-      autonomyDays <= 0 || autonomyDays > 7 ||
+      autonomyDays < 0 || autonomyDays > 7 ||
       energyRateCopKwh < 0 || energyRateCopKwh > 1_000_000 ||
       estimatedInvestmentCop < 0 || estimatedInvestmentCop > 100_000_000_000 ||
       selfConsumptionPercent < 0 || selfConsumptionPercent > 100 ||
@@ -248,7 +248,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
       tariffEscalationPercent < 0 || tariffEscalationPercent > 30 ||
       degradationPercent < 0 || degradationPercent > 5 ||
       annualMaintenanceCop < 0 || annualMaintenanceCop > 100_000_000 ||
-      analysisYears < 1 || analysisYears > 40 ||
+      analysisYears < 0 || analysisYears > 40 ||
       discountRatePercent < 0 || discountRatePercent > 50 ||
       roofTiltDegrees < 0 || roofTiltDegrees > 90 ||
       shadingPercent < 0 || shadingPercent > 100
@@ -257,7 +257,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
       setHasCalculated(false);
       return false;
     }
-    setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays, energyRateCopKwh, estimatedInvestmentCop, selfConsumptionPercent, exportRateCopKwh, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent });
+    setCalculationSnapshot({ system, monthlyUse, sunHours, panelWatts, lossPercent, autonomyDays: autonomyDays || 1, energyRateCopKwh, estimatedInvestmentCop, selfConsumptionPercent, exportRateCopKwh, tariffEscalationPercent, degradationPercent, annualMaintenanceCop, analysisYears: analysisYears || 20, discountRatePercent, municipality, roofOrientation, roofTiltDegrees, shadingPercent });
     setError("");
     setHasCalculated(true);
     return true;
@@ -330,21 +330,21 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setSunHours(0);
     setPanelWatts(0);
     setLossPercent(20);
-    setAutonomyDays(1);
+    setAutonomyDays(0);
     setEnergyRateCopKwh(0);
     setEstimatedInvestmentCop(0);
     setSelfConsumptionPercent(0);
     setExportRateCopKwh(0);
     setTariffEscalationPercent(0);
-    setDegradationPercent(0.5);
+    setDegradationPercent(0);
     setAnnualMaintenanceCop(0);
-    setAnalysisYears(20);
+    setAnalysisYears(0);
     setDiscountRatePercent(0);
     setMunicipality("");
     setRoofOrientation("sur");
-    setRoofTiltDegrees(10);
+    setRoofTiltDegrees(0);
     setShadingPercent(0);
-    setCalculationSnapshot({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+    setCalculationSnapshot({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 0, lossPercent: 20, autonomyDays: 0, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0, annualMaintenanceCop: 0, analysisYears: 0, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 0, shadingPercent: 0 });
     setError("");
     setSubmitted("");
     setHasCalculated(false);
@@ -511,8 +511,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
             <div className="form-section-title"><span>Retorno estimado para el cliente</span><span className="unit-hint">Opcional · COP</span></div>
             <p className="field-hint">Ingresa la tarifa de energía y el valor total estimado de la oferta. No se usan costos internos.</p>
             <div className="input-fields">
-              <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} min={0} max={1000000} step={100} optional onChange={(value) => { setEnergyRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
-              <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} min={0} max={100000000000} step={100000} optional onChange={(value) => { setEstimatedInvestmentCop(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Valor de energía sustituida" unit="COP/kWh" value={energyRateCopKwh} placeholder="900" min={0} max={1000000} step={100} optional onChange={(value) => { setEnergyRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Inversión total estimada" unit="COP" value={estimatedInvestmentCop} placeholder="35000000" min={0} max={100000000000} step={100000} optional onChange={(value) => { setEstimatedInvestmentCop(value); setHasCalculated(false); setSubmitted(""); }} />
             </div>
             <details className="advanced-assumptions">
               <summary>Datos adicionales para afinar la propuesta</summary>
@@ -520,28 +520,28 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
               <div className="input-divider" />
               <div className="form-section-title"><span>Proyección financiera</span><span className="unit-hint">Supuestos editables</span></div>
               <div className="input-fields">
-                <Field label="Autoconsumo estimado de la generación" unit="%" value={selfConsumptionPercent} min={0} max={100} optional onChange={(value) => { setSelfConsumptionPercent(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Compensación por excedentes" unit="COP/kWh" value={exportRateCopKwh} min={0} max={1000000} step={100} optional onChange={(value) => { setExportRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Aumento anual de tarifa" unit="%" value={tariffEscalationPercent} min={0} max={30} step={0.1} optional onChange={(value) => { setTariffEscalationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Degradación anual de paneles" unit="%" value={degradationPercent} min={0} max={5} step={0.1} optional onChange={(value) => { setDegradationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Mantenimiento anual estimado" unit="COP" value={annualMaintenanceCop} min={0} max={100000000} step={100000} optional onChange={(value) => { setAnnualMaintenanceCop(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Horizonte de análisis" unit="años" value={analysisYears} min={1} max={40} step={1} onChange={(value) => { setAnalysisYears(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Tasa de descuento" unit="%" value={discountRatePercent} min={0} max={50} step={0.1} optional onChange={(value) => { setDiscountRatePercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Autoconsumo estimado de la generación" unit="%" value={selfConsumptionPercent} placeholder="70" min={0} max={100} optional onChange={(value) => { setSelfConsumptionPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Compensación por excedentes" unit="COP/kWh" value={exportRateCopKwh} placeholder="250" min={0} max={1000000} step={100} optional onChange={(value) => { setExportRateCopKwh(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Aumento anual de tarifa" unit="%" value={tariffEscalationPercent} placeholder="8" min={0} max={30} step={0.1} optional onChange={(value) => { setTariffEscalationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Degradación anual de paneles" unit="%" value={degradationPercent} placeholder="0.5" min={0} max={5} step={0.1} optional onChange={(value) => { setDegradationPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Mantenimiento anual estimado" unit="COP" value={annualMaintenanceCop} placeholder="350000" min={0} max={100000000} step={100000} optional onChange={(value) => { setAnnualMaintenanceCop(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Horizonte de análisis" unit="años" value={analysisYears} placeholder="20" min={1} max={40} step={1} optional onChange={(value) => { setAnalysisYears(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Tasa de descuento" unit="%" value={discountRatePercent} placeholder="10" min={0} max={50} step={0.1} optional onChange={(value) => { setDiscountRatePercent(value); setHasCalculated(false); setSubmitted(""); }} />
               </div>
-              <p className="field-hint assumption-defaults-hint">Los campos opcionales vacíos se toman como 0; el horizonte inicial es 20 años. Ajusta estos valores con datos de la tarifa, la oferta y el perfil real del cliente.</p>
+              <p className="field-hint assumption-defaults-hint">Los supuestos vacíos se toman como 0. Si dejas el horizonte vacío, se usan 20 años como referencia. Ajusta estos valores con datos de la tarifa, la oferta y el perfil real del cliente.</p>
               <div className="input-divider" />
               <div className="form-section-title"><span>Referencia del sitio</span><span className="unit-hint">Para revisión de ingeniería</span></div>
               <div className="input-fields">
                 <label className="sizer-field"><span className="sizer-label">Municipio</span><input className="text-input" maxLength={120} placeholder="Ej. Medellín, Antioquia" value={municipality} onChange={(event) => { setMunicipality(event.target.value); setHasCalculated(false); setSubmitted(""); }} /></label>
                 <label className="sizer-field"><span className="sizer-label">Orientación del techo</span><select className="text-input" value={roofOrientation} onChange={(event) => { setRoofOrientation(event.target.value); setHasCalculated(false); setSubmitted(""); }}><option value="sur">Sur</option><option value="norte">Norte</option><option value="este">Este</option><option value="oeste">Oeste</option><option value="mixta">Mixta / por confirmar</option></select></label>
-                <Field label="Inclinación del techo" unit="°" value={roofTiltDegrees} min={0} max={90} step={1} optional onChange={(value) => { setRoofTiltDegrees(value); setHasCalculated(false); setSubmitted(""); }} />
-                <Field label="Sombreado estimado del sitio" unit="%" value={shadingPercent} min={0} max={100} step={1} optional onChange={(value) => { setShadingPercent(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Inclinación del techo" unit="°" value={roofTiltDegrees} placeholder="10" min={0} max={90} step={1} optional onChange={(value) => { setRoofTiltDegrees(value); setHasCalculated(false); setSubmitted(""); }} />
+                <Field label="Sombreado estimado del sitio" unit="%" value={shadingPercent} placeholder="5" min={0} max={100} step={1} optional onChange={(value) => { setShadingPercent(value); setHasCalculated(false); setSubmitted(""); }} />
               </div>
               <p className="field-hint assumption-defaults-hint">La orientación, inclinación y sombra quedan como referencia; no sustituyen una visita ni cambian automáticamente las horas sol pico.</p>
             </details>
 
             {system !== "on_grid" && <div className="battery-input">
-              <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} min={0.5} max={7} step={0.5} onChange={(value) => { setAutonomyDays(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Autonomía de almacenamiento" unit="días" value={autonomyDays} placeholder="1" min={0.5} max={7} step={0.5} onChange={(value) => { setAutonomyDays(value); setHasCalculated(false); setSubmitted(""); }} />
               <p>Estimación preliminar de batería útil al 80% de profundidad de descarga.</p>
             </div>}
 
