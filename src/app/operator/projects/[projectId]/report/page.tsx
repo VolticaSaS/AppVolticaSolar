@@ -186,7 +186,7 @@ export default async function ClientReportPage({ params }: { params: Promise<{ p
               {roiPercent !== null && <div><span>Retorno simple anual</span><strong>{roiPercent.toFixed(1)}%</strong></div>}
               {simplePayback !== null && <div><span>Recuperación estimada</span><strong>{simplePayback.toFixed(1)} años</strong></div>}
               {npv !== null && <div><span>Valor presente neto</span><strong>{money(npv)}</strong></div>}
-              {cumulativeNetGain !== null && <div><span>Resultado neto proyectado{analysisYears ? ` · ${analysisYears} años` : ""}</span><strong>{money(cumulativeNetGain)}</strong></div>}
+              {cumulativeNetGain !== null && <div><span>Valor neto proyectado{analysisYears ? ` · ${analysisYears} años` : ""}</span><strong>{money(cumulativeNetGain)}</strong></div>}
             </div>}
             {annualSavings === null && <p className="report-small">Completa la tarifa de energía y los supuestos de retorno para estimar el ahorro.</p>}
           </> : <p className="report-pending-price">El precio de la propuesta está pendiente de aprobación o actualización por administración. Los indicadores financieros se omiten hasta contar con un valor autorizado vigente.</p>}
