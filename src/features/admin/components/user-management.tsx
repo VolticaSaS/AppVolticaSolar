@@ -183,6 +183,10 @@ export function UserManagement({ currentUserId }: { currentUserId: string }) {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
+      <nav aria-label="Administración" className="mb-7 grid gap-3 sm:grid-cols-2">
+        <span aria-current="page" className="rounded-xl bg-[#005000] px-5 py-4 font-semibold text-white">Usuarios y perfiles</span>
+        <Link className="rounded-xl border border-green-200 bg-white px-5 py-4 font-semibold text-[#005000] hover:bg-green-50" href="/admin/projects">Proyectos y asignaciones →</Link>
+      </nav>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-[#005000]">Administración</p>
