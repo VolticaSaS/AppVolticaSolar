@@ -25,6 +25,7 @@ function Field({
   max,
   step = "any",
   optional = false,
+  placeholder,
   onChange,
 }: {
   label: string;
@@ -34,6 +35,7 @@ function Field({
   max: number;
   step?: number | string;
   optional?: boolean;
+  placeholder?: string;
   onChange: (value: number) => void;
 }) {
   return (
@@ -47,6 +49,7 @@ function Field({
           min={min}
           max={max}
           step={step}
+          placeholder={placeholder}
           value={value === 0 ? "" : value}
           onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
           onBlur={(event) => {
@@ -79,9 +82,9 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [installationAddress, setInstallationAddress] = useState("");
   const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
   const [system, setSystem] = useState<SystemType>("on_grid");
-  const [monthlyUse, setMonthlyUse] = useState(600);
-  const [sunHours, setSunHours] = useState(4.5);
-  const [panelWatts, setPanelWatts] = useState(585);
+  const [monthlyUse, setMonthlyUse] = useState(0);
+  const [sunHours, setSunHours] = useState(0);
+  const [panelWatts, setPanelWatts] = useState(0);
   const [lossPercent, setLossPercent] = useState(20);
   const [autonomyDays, setAutonomyDays] = useState(1);
   const [energyRateCopKwh, setEnergyRateCopKwh] = useState(0);
@@ -97,7 +100,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [roofOrientation, setRoofOrientation] = useState("sur");
   const [roofTiltDegrees, setRoofTiltDegrees] = useState(10);
   const [shadingPercent, setShadingPercent] = useState(0);
-  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 0, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
   const [hasCalculated, setHasCalculated] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -131,7 +134,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setProjectId(nextId);
     const project = projects.find((item) => item.id === nextId);
     setHasSavedDraft(project?.latestSimulation?.status === "draft");
-    if (!project) return;
+    if (!project) { reset(); return; }
     setProjectName(project.name);
     setLegalType(project.client.legalType ?? "natural_person");
     setLegalName(project.client.legalName);
@@ -323,9 +326,9 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setInstallationAddress("");
     setSameInstallationAddress(true);
     setSystem("on_grid");
-    setMonthlyUse(600);
-    setSunHours(4.5);
-    setPanelWatts(585);
+    setMonthlyUse(0);
+    setSunHours(0);
+    setPanelWatts(0);
     setLossPercent(20);
     setAutonomyDays(1);
     setEnergyRateCopKwh(0);
@@ -493,9 +496,9 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
             <div className="input-divider" />
             <div className="form-section-title"><span>Consumo y recurso solar</span><span className="unit-hint">Unidades estándar</span></div>
             <div className="input-fields">
-              <Field label="Consumo promedio mensual" unit="kWh/mes" value={monthlyUse} min={1} max={100000} onChange={(value) => { setMonthlyUse(value); setHasCalculated(false); setSubmitted(""); }} />
-              <Field label="Horas sol pico promedio" unit="h/día" value={sunHours} min={0.1} max={10} step={0.1} onChange={(value) => { setSunHours(value); setHasCalculated(false); setSubmitted(""); }} />
-              <Field label="Potencia del panel" unit="Wp" value={panelWatts} min={1} max={1000} onChange={(value) => { setPanelWatts(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Consumo promedio mensual" unit="kWh/mes" value={monthlyUse} placeholder="600" min={1} max={100000} onChange={(value) => { setMonthlyUse(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Horas sol pico promedio" unit="h/día" value={sunHours} placeholder="4.5" min={0.1} max={10} step={0.1} onChange={(value) => { setSunHours(value); setHasCalculated(false); setSubmitted(""); }} />
+              <Field label="Potencia del panel" unit="Wp" value={panelWatts} placeholder="585" min={1} max={1000} onChange={(value) => { setPanelWatts(value); setHasCalculated(false); setSubmitted(""); }} />
             </div>
 
             <label className="sizer-field loss-field">
