@@ -47,12 +47,12 @@ function Field({
           min={min}
           max={max}
           step={step}
-          value={optional && value === 0 ? "" : value}
+          value={value === 0 ? "" : value}
           onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
           onBlur={(event) => {
             const normalizedValue = Number(event.currentTarget.value);
             if (Number.isFinite(normalizedValue)) {
-              event.currentTarget.value = optional && normalizedValue === 0 ? "" : String(normalizedValue);
+              event.currentTarget.value = normalizedValue === 0 ? "" : String(normalizedValue);
               onChange(normalizedValue);
             }
           }}
@@ -79,8 +79,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [installationAddress, setInstallationAddress] = useState("");
   const [sameInstallationAddress, setSameInstallationAddress] = useState(true);
   const [system, setSystem] = useState<SystemType>("on_grid");
-  const [monthlyUse, setMonthlyUse] = useState(650);
-  const [sunHours, setSunHours] = useState(4.5);
+  const [monthlyUse, setMonthlyUse] = useState(0);
+  const [sunHours, setSunHours] = useState(0);
   const [panelWatts, setPanelWatts] = useState(585);
   const [lossPercent, setLossPercent] = useState(20);
   const [autonomyDays, setAutonomyDays] = useState(1);
@@ -97,8 +97,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   const [roofOrientation, setRoofOrientation] = useState("sur");
   const [roofTiltDegrees, setRoofTiltDegrees] = useState(10);
   const [shadingPercent, setShadingPercent] = useState(0);
-  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
-  const [hasCalculated, setHasCalculated] = useState(true);
+  const [calculationSnapshot, setCalculationSnapshot] = useState<CalculationSnapshot>({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+  const [hasCalculated, setHasCalculated] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
@@ -113,6 +113,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
   useEffect(() => {
     let active = true;
     if (new URLSearchParams(window.location.search).get("section") === "projects") {
+      // This effect synchronizes the initial URL query parameter with the client-side tab state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSection("projects");
     }
     fetch("/api/operator/projects", { cache: "no-store" })
@@ -179,6 +181,11 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     const batteryKwh = dailyUse * Math.max(0, calculatedAutonomyDays) / (0.8 * 0.9);
     return { dailyUse, arrayKwp, panelCount, installedKwp, monthlyProduction, batteryKwh };
   }, [calculationSnapshot]);
+
+  const hasCalculatedResult = hasCalculated
+    && calculationSnapshot.monthlyUse > 0
+    && calculationSnapshot.sunHours > 0
+    && calculationSnapshot.panelWatts > 0;
 
   const selectedProject = projects.find((project) => project.id === projectId);
   const isReviewLocked = selectedProject?.latestSimulation?.status === "needs_review" || selectedProject?.latestSimulation?.status === "in_review";
@@ -316,8 +323,8 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setInstallationAddress("");
     setSameInstallationAddress(true);
     setSystem("on_grid");
-    setMonthlyUse(650);
-    setSunHours(4.5);
+    setMonthlyUse(0);
+    setSunHours(0);
     setPanelWatts(585);
     setLossPercent(20);
     setAutonomyDays(1);
@@ -334,7 +341,7 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
     setRoofOrientation("sur");
     setRoofTiltDegrees(10);
     setShadingPercent(0);
-    setCalculationSnapshot({ system: "on_grid", monthlyUse: 650, sunHours: 4.5, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
+    setCalculationSnapshot({ system: "on_grid", monthlyUse: 0, sunHours: 0, panelWatts: 585, lossPercent: 20, autonomyDays: 1, energyRateCopKwh: 0, estimatedInvestmentCop: 0, selfConsumptionPercent: 0, exportRateCopKwh: 0, tariffEscalationPercent: 0, degradationPercent: 0.5, annualMaintenanceCop: 0, analysisYears: 20, discountRatePercent: 0, municipality: "", roofOrientation: "sur", roofTiltDegrees: 10, shadingPercent: 0 });
     setError("");
     setSubmitted("");
     setHasCalculated(false);
@@ -547,9 +554,10 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
           <section className="results-column" aria-labelledby="result-title">
             <div className="result-card">
               <div className="result-card-heading">
-                <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculated && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
-                <span className={`result-status ${hasCalculated ? "" : "stale"}`}><span /> {hasCalculated ? "Actualizado" : "Recalcular"}</span>
+                <div><p className="result-overline">RESULTADO PRELIMINAR</p><h2 id="result-title">{hasCalculatedResult && projectName.trim() ? projectName : "Tu dimensionamiento"}</h2></div>
+                <span className={`result-status ${hasCalculatedResult ? "" : "stale"}`}><span /> {hasCalculatedResult ? "Actualizado" : monthlyUse > 0 && sunHours > 0 ? "Calcula para ver" : "Datos pendientes"}</span>
               </div>
+              {hasCalculatedResult ? <>
               <div className="system-summary"><span>{systemLabels[calculationSnapshot.system]}</span><span>Panel de {calculationSnapshot.panelWatts} Wp</span></div>
               <div className="panel-count">
                 <span className="panel-count-label">Cantidad recomendada de paneles</span>
@@ -579,13 +587,16 @@ export function SolarSizingWorkspace({ role }: { role: "operator" | "engineer" }
                 </>}
                 <div className="result-note"><span aria-hidden="true">ⓘ</span><p>{roi.hasFinancialProjection ? `Proyección preliminar con ${calculationSnapshot.selfConsumptionPercent}% de autoconsumo, tarifa creciendo ${calculationSnapshot.tariffEscalationPercent}% anual, degradación ${calculationSnapshot.degradationPercent}% y O&M indicado. No incluye financiación ni impuestos.` : "ROI simple: asume que la generación desplaza consumo hasta el consumo mensual ingresado. Abre los datos adicionales e indica autoconsumo para estimar excedentes y flujo de caja."}</p></div>
               </> : <p className="field-hint">Completa tarifa e inversión total. Para proyección avanzada, indica también el autoconsumo estimado.</p>}
+              </> : <div className="result-empty" role="status"><strong>El resultado aparecerá aquí</strong><p>Ingresa el consumo mensual y las horas sol pico. Luego pulsa «Calcular dimensionamiento».</p></div>}
             </div>
 
             <div className="method-card">
               <h3>¿Cómo se calcula?</h3>
               <p>Potencia FV = consumo diario ÷ horas sol pico ÷ rendimiento del sistema. La cantidad se redondea al siguiente panel completo.</p>
-              <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - calculationSnapshot.lossPercent)}%</strong></div>
-              <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
+              {hasCalculatedResult ? <>
+                <div className="method-stats"><span>Rendimiento aplicado</span><strong>{(100 - calculationSnapshot.lossPercent)}%</strong></div>
+                <div className="method-stats"><span>Potencia FV requerida</span><strong>{result.arrayKwp.toFixed(2)} kWp</strong></div>
+              </> : <p className="field-hint">Las variables del cálculo se mostrarán después de calcular.</p>}
             </div>
           </section>
         </div>
