@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePageRole, requireProjectAccess } from "@/lib/auth/guards";
 import { getPrisma } from "@/lib/prisma";
@@ -19,6 +20,10 @@ const statusNames: Record<string, string> = {
   rejected: "Preliminar · requiere ajustes",
   approved: "Aprobado por ingeniería",
 };
+
+function currentTimestamp(): number {
+  return Date.now();
+}
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -78,7 +83,7 @@ export default async function ClientReportPage({ params }: { params: Promise<{ p
   const cashFlows = Array.isArray(financial.cash_flows) ? financial.cash_flows.map(record) : [];
   const estimate = await findLatestPublicEstimate(project.id);
   const estimateIsValid = !!estimate && estimate.estimate_status !== "expired" &&
-    (!estimate.valid_until || new Date(estimate.valid_until + "T23:59:59Z").getTime() >= Date.now());
+    (!estimate.valid_until || new Date(estimate.valid_until + "T23:59:59Z").getTime() >= currentTimestamp());
   const estimateTotal = estimateIsValid ? Number(estimate?.estimated_total_cop) : null;
 
   const monthlyUse = numberValue(inputs.energy_kwh_month);
@@ -128,10 +133,10 @@ export default async function ClientReportPage({ params }: { params: Promise<{ p
   return (
     <main className="client-report-page">
       <div className="report-toolbar">
-        <a className="report-back-button" href="/?section=projects" aria-label="Volver a Mis proyectos">
+        <Link className="report-back-button" href="/?section=projects" aria-label="Volver a Mis proyectos">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h12" /></svg>
           <span>Volver a Mis proyectos</span>
-        </a>
+        </Link>
         <p>Ficha para compartir con el cliente</p>
         <PrintReportButton />
       </div>
