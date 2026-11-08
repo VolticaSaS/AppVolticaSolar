@@ -63,7 +63,7 @@ const schema = z.object({
     context.addIssue({ code: "custom", path: ["contactName"], message: "Escribe el nombre de la persona de contacto usando solo letras." });
   }
   if (!isValidColombianIdentification(input.taxId, input.legalType)) {
-    context.addIssue({ code: "custom", path: ["taxId"], message: "La cédula debe tener de 6 a 10 dígitos. El NIT debe tener 9 dígitos y un dígito de verificación válido." });
+    context.addIssue({ code: "custom", path: ["taxId"], message: "La cédula debe tener entre 6 y 11 dígitos. El NIT debe incluir entre 9 y 15 dígitos y un DV válido; ejemplo: 900123456-8." });
   }
   if (!isValidPhone(input.contactPhone)) {
     context.addIssue({ code: "custom", path: ["contactPhone"], message: "Escribe un teléfono válido, con indicativo opcional y entre 7 y 15 dígitos." });
