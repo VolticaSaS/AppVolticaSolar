@@ -98,7 +98,11 @@ export async function PATCH(request: Request) {
     await getPrisma().$transaction(async (tx) => {
       await tx.projectMembership.deleteMany({ where: { projectId, accessRole: "reviewer" } });
       if (reviewerId) {
-        await tx.projectMembership.create({ data: { projectId, userId: reviewerId, accessRole: "reviewer", assignedBy: actor.id } });
+        await tx.projectMembership.upsert({
+          where: { projectId_userId: { projectId, userId: reviewerId } },
+          create: { projectId, userId: reviewerId, accessRole: "reviewer", assignedBy: actor.id },
+          update: { accessRole: "reviewer", assignedBy: actor.id },
+        });
       }
     });
     await writeAuditEvent({ actorId: actor.id, action: reviewerId ? "project.assign_reviewer" : "project.unassign_reviewer", entityType: "project", entityId: projectId });
